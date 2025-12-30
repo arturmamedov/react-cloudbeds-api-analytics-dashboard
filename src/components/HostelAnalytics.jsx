@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, Calendar, BarChart3, Brain, FileText, Copy, ChevronDown, ChevronUp, LineChart, FolderOpen, DollarSign, TrendingUp } from 'lucide-react';
+import { Upload, BarChart3, Brain, FileText, Copy, ChevronDown, ChevronUp, LineChart, FolderOpen, DollarSign, TrendingUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { hostelConfig } from '../config/hostelConfig';
 import { calculatePeriod, formatPeriodRange, parseExcelDate, calculateLeadTime, detectWeekFromBookings, validateWeekMatch } from '../utils/dateUtils';
@@ -10,6 +10,7 @@ import MetricChange from './Dashboard/MetricChange';
 import WarningBanner from './DataInput/WarningBanner';
 import WeekSelector from './DataInput/WeekSelector';
 import HostelCard from './Dashboard/HostelCard';
+import LatestWeekSummary from './Dashboard/LatestWeekSummary';
 import ReservationChart from './Charts/ReservationChart';
 import AIAnalysisPanel from './Analysis/AIAnalysisPanel';
 
@@ -526,20 +527,7 @@ Format your response in a clear, actionable report.`;
                 </div>
 
                 {/* Current Week Summary - Responsive Grid */}
-                {weeklyData.length > 0 && (
-                    <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 mb-8">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <Calendar className="text-green-600" />
-                            Latest Week: {weeklyData[weeklyData.length - 1]?.week}
-                        </h2>
-
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                            {Object.entries(weeklyData[weeklyData.length - 1]?.hostels || {}).map(([hostel, data]) => (
-                                <HostelCard key={hostel} hostel={hostel} data={data} />
-                            ))}
-                        </div>
-                    </div>
-                )}
+                <LatestWeekSummary weeklyData={weeklyData} />
 
                 {/* Weekly Comparison Table */}
                 {weeklyData.length > 0 && (
