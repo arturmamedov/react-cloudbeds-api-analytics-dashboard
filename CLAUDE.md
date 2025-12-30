@@ -31,22 +31,36 @@ This project is built for **Nests Hostels**, a Spanish hostel chain, with a focu
 
 ### Core Principles
 
-1. **Keep Code Simple and Readable**
+1. **Simplicity Over Complexity**
+   - Choose the simpler solution that works
    - Favor clarity over cleverness
    - Write code that operators can understand
    - Avoid unnecessary abstractions
 
-2. **Incremental Improvements, Not Rewrites**
+2. **Pragmatic Over Theoretical**
+   - Real functionality trumps "best practices"
+   - Focus on what works for Nests Hostels
+   - Avoid dogmatic adherence to patterns
+   - Choose practical solutions over ideal ones
+
+3. **Low Coupling**
+   - Components should be independent and reusable
+   - Minimize dependencies between components
+   - Each component should stand alone when possible
+   - Avoid tight coupling to specific implementations
+
+4. **Proper Encapsulation**
+   - Components manage their own concerns
+   - Keep internal logic private to the component
+   - Clear interfaces between components
+   - Don't expose implementation details
+
+5. **Incremental Improvements, Not Rewrites**
    - Suggest small, targeted enhancements
    - Never propose complete architectural changes
    - Build on existing patterns
 
-3. **Avoid Over-Engineering**
-   - Don't add complexity for hypothetical future needs
-   - Keep solutions focused on current requirements
-   - Three lines of clear code > one clever abstraction
-
-4. **Functional Components with Hooks**
+6. **Functional Components with Hooks**
    - Use `useState`, `useEffect`, `useCallback`
    - Avoid class components entirely
    - Keep hooks simple and focused
@@ -94,6 +108,81 @@ This project is built for **Nests Hostels**, a Spanish hostel chain, with a focu
 - Proper `key` props in lists
 - Correct dependency arrays
 - Avoid inline object/function creation in renders
+
+## 💬 Communication Guidelines
+
+**CRITICAL: How AI Assistants Should Interact**
+
+### Always Ask Before Coding
+- **Confirm requirements first**: Understand what's needed before suggesting code
+- **Clarify ambiguity**: If requirements are unclear, ask questions
+- **Present options**: When multiple approaches exist, explain trade-offs
+- **Get approval**: Wait for confirmation before implementing significant changes
+
+### Explain Technical Trade-offs
+```
+❌ BAD: "Here's the solution using Redux for state management."
+
+✅ GOOD: "We could manage this with Redux (overkill for this app) or
+         keep using local state (simpler, fits current pattern).
+         Given the project's philosophy, I'd recommend local state.
+         Should I proceed with that approach?"
+```
+
+### Provide Practical Examples
+- Include clear, commented code examples
+- Show both good and bad patterns (with ✅ and ❌)
+- Use real examples from the codebase when possible
+- Explain why one approach is better for this specific project
+
+### Avoid "Best Practices" Claims
+```
+❌ BAD: "Best practice dictates we should use Redux here."
+❌ BAD: "The right way is to extract this into a custom hook."
+❌ BAD: "Industry standard is to use TypeScript for this."
+
+✅ GOOD: "For this monolithic component design, keeping state local
+         is simpler and aligns with the project's pragmatic approach."
+
+✅ GOOD: "We could extract this into a custom hook, but since it's
+         only used once, inline logic is clearer per the project
+         guidelines (3+ reuse rule)."
+
+✅ GOOD: "TypeScript could add type safety, but would increase
+         complexity. Given the 'simplicity over complexity' principle,
+         the current JavaScript approach works well."
+```
+
+### When Proposing Changes
+1. **Explain the problem** - What issue are we solving?
+2. **Present options** - What are the possible approaches?
+3. **Recommend solution** - Which fits project philosophy best?
+4. **Show trade-offs** - What are we gaining/losing?
+5. **Ask for approval** - Wait for confirmation before coding
+
+### Example Interaction
+```
+User: "The charts are loading slowly."
+
+❌ BAD Response:
+"I'll refactor this to use React.memo and useMemo everywhere."
+
+✅ GOOD Response:
+"I notice the chart rendering might be slow. Before optimizing,
+let me ask:
+
+1. How many data points are typically displayed?
+2. Is this slow on all devices or just certain ones?
+3. Have you tested with React DevTools Profiler?
+
+Based on your answers, we could:
+- Option A: Add React.memo to chart components (targeted, simple)
+- Option B: Refactor data processing (more complex but might help)
+- Option C: Measure first with profiler (best practice: measure before optimizing)
+
+I'd recommend Option C first - let's see where the actual bottleneck
+is before making changes. Should I add profiling instructions?"
+```
 
 ## 🏗️ Architecture Patterns
 
@@ -615,11 +704,21 @@ When unclear about requirements, ask about:
 
 **This codebase prioritizes:**
 1. **Simplicity over complexity** - Keep it simple, readable, maintainable
-2. **Incremental improvements** - Small changes, not rewrites
-3. **Well-commented code** - Explain the "why", not just the "what"
-4. **DRY principles** - Reuse, don't repeat
-5. **No over-engineering** - Solve today's problems, not tomorrow's
-6. **Business value** - Every change should serve Nests Hostels operators
+2. **Pragmatic over theoretical** - Real functionality trumps ideology
+3. **Low coupling** - Independent, reusable components
+4. **Proper encapsulation** - Components manage their own concerns
+5. **Incremental improvements** - Small changes, not rewrites
+6. **Well-commented code** - Explain the "why", not just the "what"
+7. **DRY principles** - Reuse, don't repeat
+8. **No over-engineering** - Solve today's problems, not tomorrow's
+9. **Business value** - Every change should serve Nests Hostels operators
+
+**When interacting with users:**
+- **Ask before coding** - Confirm requirements and approach first
+- **Explain trade-offs** - Present options with reasoning
+- **Avoid "best practices" claims** - Context matters more than dogma
+- **Provide examples** - Show practical, commented code
+- **Be pragmatic** - Choose what works, not what's "pure"
 
 **When in doubt:**
 - Choose simpler solution
@@ -627,6 +726,7 @@ When unclear about requirements, ask about:
 - Ask before major changes
 - Keep existing patterns
 - Measure before optimizing
+- Explain your reasoning
 
 **Last Updated**: December 30, 2024
 **Maintained By**: Claude AI in collaboration with Artur Mamedov
