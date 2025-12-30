@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, Calendar, BarChart3, Brain, FileText, Copy, ChevronDown, ChevronUp, LineChart, FolderOpen, AlertTriangle, DollarSign } from 'lucide-react';
+import { Upload, Calendar, BarChart3, Brain, FileText, Copy, ChevronDown, ChevronUp, LineChart, FolderOpen, DollarSign } from 'lucide-react';
 import { LineChart as RechartsLineChart, BarChart as RechartsBarChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
 import { hostelConfig } from '../config/hostelConfig';
@@ -8,6 +8,7 @@ import { formatCurrency, parsePrice } from '../utils/formatters';
 import { calculateMetricChange, calculateHostelMetrics, calculateProgressiveMetricChanges } from '../utils/metricsCalculator';
 import { detectHostelFromData, parsePastedData, sortWeeklyData } from '../utils/dataParser';
 import MetricChange from './Dashboard/MetricChange';
+import WarningBanner from './DataInput/WarningBanner';
 
 const HostelAnalytics = () => {
     const [weeklyData, setWeeklyData] = useState([]);
@@ -367,17 +368,7 @@ Format your response in a clear, actionable report.`;
                 </div>
 
                 {/* Warnings */}
-                {warnings.length > 0 && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6">
-                        <div className="flex items-center gap-2 mb-2">
-                            <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                            <h3 className="font-semibold text-yellow-800">Warnings</h3>
-                        </div>
-                        {warnings.map((warning, index) => (
-                            <p key={index} className="text-yellow-700 text-sm">{warning}</p>
-                        ))}
-                    </div>
-                )}
+                <WarningBanner warnings={warnings} />
 
                 {/* Input Method Toggle */}
                 <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
