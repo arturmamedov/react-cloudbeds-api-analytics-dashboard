@@ -14,6 +14,87 @@ Transform CloudBeds reservation exports into actionable insights for hostel oper
 - Visual trend analysis with charts
 - AI-powered performance analysis
 
+### Tech Stack
+- **React 18** - Functional components with hooks
+- **Vite** - Build tool and dev server
+- **Tailwind CSS** - Utility-first styling
+- **Recharts** - Charts and visualizations
+- **SheetJS (XLSX)** - Excel file processing
+- **Lucide React** - Icon library
+- **Claude API** - AI-powered analysis
+
+## 🎨 Development Philosophy
+
+**CRITICAL PRINCIPLE: Simplicity Over Complexity**
+
+This project is built for **Nests Hostels**, a Spanish hostel chain, with a focus on practical, maintainable code that solves real business problems.
+
+### Core Principles
+
+1. **Keep Code Simple and Readable**
+   - Favor clarity over cleverness
+   - Write code that operators can understand
+   - Avoid unnecessary abstractions
+
+2. **Incremental Improvements, Not Rewrites**
+   - Suggest small, targeted enhancements
+   - Never propose complete architectural changes
+   - Build on existing patterns
+
+3. **Avoid Over-Engineering**
+   - Don't add complexity for hypothetical future needs
+   - Keep solutions focused on current requirements
+   - Three lines of clear code > one clever abstraction
+
+4. **Functional Components with Hooks**
+   - Use `useState`, `useEffect`, `useCallback`
+   - Avoid class components entirely
+   - Keep hooks simple and focused
+
+### What to AVOID
+
+❌ **Complex State Management**
+- No Redux, Zustand, or MobX unless clearly needed
+- Local state is sufficient for this application
+- Keep state management simple
+
+❌ **Custom Hooks (Unless Reused 3+ Times)**
+- Don't extract logic into hooks prematurely
+- Only create custom hooks when pattern repeats 3+ times
+- Inline logic is often clearer
+
+❌ **Unnecessary Dependencies**
+- Don't add libraries for simple problems
+- Use existing utilities first
+- Every dependency is a maintenance burden
+
+❌ **Major Architectural Changes**
+- No "let's rebuild this better" suggestions
+- Work within existing structure
+- Respect the monolithic component design
+
+### What to FOCUS ON
+
+✅ **Performance Improvements**
+- Use `React.memo` for expensive list items
+- Apply `useMemo` for heavy calculations
+- Optimize only when needed (measure first)
+
+✅ **Accessibility Enhancements**
+- Semantic HTML elements
+- ARIA labels for interactive elements
+- Keyboard navigation support
+
+✅ **Small, Targeted Fixes**
+- One bug, one commit
+- Clear, specific changes
+- Easy to review and test
+
+✅ **React Best Practices**
+- Proper `key` props in lists
+- Correct dependency arrays
+- Avoid inline object/function creation in renders
+
 ## 🏗️ Architecture Patterns
 
 ### Component Structure
@@ -219,6 +300,100 @@ const MetricChange = ({ changes, isCurrency = false }) => {
 - **Purple**: Nest Pass metrics and totals
 - **Yellow**: Warnings (week mismatches)
 
+## ⚡ Performance Guidelines
+
+### When to Optimize
+- **Measure first**: Use React DevTools Profiler before optimizing
+- **Optimize only bottlenecks**: Don't prematurely optimize
+- **Keep it simple**: Performance hacks hurt maintainability
+
+### React.memo Usage
+```javascript
+// ✅ GOOD: Memoize expensive list items
+const HostelCard = React.memo(({ data, week }) => {
+  // Card render logic
+});
+
+// ❌ BAD: Memoizing everything
+const SimpleButton = React.memo(({ onClick }) => <button onClick={onClick}>Click</button>);
+```
+
+### useMemo for Heavy Calculations
+```javascript
+// ✅ GOOD: Expensive chart data preparation
+const chartData = useMemo(() => {
+  return weeklyData.map(week => ({
+    week: week.week,
+    ...complexCalculations(week)
+  }));
+}, [weeklyData]);
+
+// ❌ BAD: Simple operations don't need useMemo
+const doubledValue = useMemo(() => count * 2, [count]); // Overkill
+```
+
+### useCallback for Event Handlers
+```javascript
+// ✅ GOOD: Prevent recreating functions in renders
+const handleDrop = useCallback(async (e) => {
+  e.preventDefault();
+  // Drop logic
+}, []); // Empty deps, function never changes
+
+// ❌ BAD: Callbacks that don't prevent re-renders
+const handleClick = useCallback(() => setCount(count + 1), [count]); // Updates anyway
+```
+
+## ♿ Accessibility Guidelines
+
+### Semantic HTML
+```jsx
+// ✅ GOOD: Semantic elements
+<button onClick={handleClick}>Process Data</button>
+<nav>
+  <ul>
+    <li><a href="#upload">Upload</a></li>
+  </ul>
+</nav>
+
+// ❌ BAD: Generic divs with click handlers
+<div onClick={handleClick}>Process Data</div>
+```
+
+### ARIA Labels
+```jsx
+// ✅ GOOD: Descriptive labels
+<button aria-label="Upload Excel file for Flamingo hostel">
+  <Upload className="w-4 h-4" />
+</button>
+
+<input
+  type="file"
+  aria-describedby="file-upload-instructions"
+  accept=".xlsx,.xls"
+/>
+<p id="file-upload-instructions">Upload CloudBeds Excel reports</p>
+
+// ❌ BAD: Missing context
+<button><Upload /></button>
+```
+
+### Keyboard Navigation
+```jsx
+// ✅ GOOD: Proper tab order and keyboard support
+<div
+  role="button"
+  tabIndex={0}
+  onClick={handleClick}
+  onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+>
+  Paste Data
+</div>
+
+// ❌ BAD: No keyboard access
+<div onClick={handleClick}>Paste Data</div>
+```
+
 ## 🔧 Configuration
 
 ### Hostel Configuration
@@ -317,12 +492,20 @@ Format your response in a clear, actionable report.`;
 ### Code Review Checklist
 - [ ] Comments explain "why" not just "what"
 - [ ] DRY principles followed (no repeated code)
+- [ ] Code is simple and readable (no over-engineering)
+- [ ] Incremental change (not a rewrite)
+- [ ] No unnecessary dependencies added
+- [ ] No custom hooks unless reused 3+ times
 - [ ] Responsive design maintained
 - [ ] Data processing pipeline intact
 - [ ] Week detection and validation working
 - [ ] Metrics calculations accurate (including Nest Pass/Monthly)
 - [ ] UI color coding consistent
 - [ ] Error handling present
+- [ ] Proper React key props in lists
+- [ ] Correct useEffect/useCallback dependencies
+- [ ] Accessibility considerations (semantic HTML, ARIA)
+- [ ] Performance optimized only where needed
 
 ## 🔮 Future Extensibility
 
@@ -387,12 +570,24 @@ The codebase includes extension points:
 
 ## 📞 Questions & Context
 
+### Business Context: Nests Hostels
+This dashboard is built specifically for **Nests Hostels**, a Spanish hostel chain operating multiple properties across Spain. Understanding the business context is crucial:
+
+- **Target Users**: Hostel operators and management
+- **Primary Language**: Spanish (though app is currently English)
+- **Data Source**: CloudBeds (property management system)
+- **Use Case**: Weekly direct booking performance tracking
+- **Decision Making**: Week-over-week trends inform pricing and marketing
+- **Nest Pass**: Long-term stay program (7+ nights) is a key revenue driver
+- **Monthly Stays**: 28+ night bookings are high-value guests
+
 ### For User Clarifications
 When unclear about requirements, ask about:
 1. **Hostel Business Context**: How do operators use this data?
 2. **CloudBeds Workflow**: What's the typical export/analysis flow?
 3. **Metric Definitions**: Confirm ADR, lead time, cancellation tracking, Nest Pass criteria
 4. **UI/UX Preferences**: Desktop vs mobile priority, data density
+5. **Simplicity vs Features**: Always err on side of simplicity
 
 ### Common Tasks
 - **Adding Hostels**: Update `hostelConfig` with ID and name
@@ -416,7 +611,23 @@ When unclear about requirements, ask about:
 
 ---
 
-**Remember**: This codebase prioritizes clarity, maintainability, and well-documented code. Always preserve and enhance comments, follow DRY principles, and maintain the established patterns.
+## 🎯 Remember: Core Principles
+
+**This codebase prioritizes:**
+1. **Simplicity over complexity** - Keep it simple, readable, maintainable
+2. **Incremental improvements** - Small changes, not rewrites
+3. **Well-commented code** - Explain the "why", not just the "what"
+4. **DRY principles** - Reuse, don't repeat
+5. **No over-engineering** - Solve today's problems, not tomorrow's
+6. **Business value** - Every change should serve Nests Hostels operators
+
+**When in doubt:**
+- Choose simpler solution
+- Add comments, not complexity
+- Ask before major changes
+- Keep existing patterns
+- Measure before optimizing
 
 **Last Updated**: December 30, 2024
 **Maintained By**: Claude AI in collaboration with Artur Mamedov
+**Built For**: Nests Hostels (Spanish hostel chain)
