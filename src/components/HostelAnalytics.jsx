@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { hostelConfig } from '../config/hostelConfig';
 import { dateConfig, calculatePeriod, formatPeriodRange, parseExcelDate, calculateLeadTime, detectWeekFromBookings, validateWeekMatch } from '../utils/dateUtils';
 import { formatCurrency, parsePrice } from '../utils/formatters';
+import { calculateMetricChange, calculateHostelMetrics, calculateProgressiveMetricChanges } from '../utils/metricsCalculator';
 
 const HostelAnalytics = () => {
     const [weeklyData, setWeeklyData] = useState([]);
@@ -18,46 +19,6 @@ const HostelAnalytics = () => {
     const [inputMethod, setInputMethod] = useState('file');
     const [selectedWeekStart, setSelectedWeekStart] = useState('');
     const [warnings, setWarnings] = useState([]);
-
-    // Utility: Calculate metric change (DRY)
-    const calculateMetricChange = (current, previous) => {
-        if (previous === 0 || previous === undefined) {
-            return { change: current, percentage: current > 0 ? 100 : 0, isNew: true };
-        }
-        const change = current - previous;
-        const percentage = Math.round((change / previous) * 100);
-        return { change, percentage, isNew: false };
-    };
-
-    // Calculate hostel metrics (DRY helper)
-    const calculateHostelMetrics = (bookings) => {
-        const cancelled = bookings.filter(b => b.status?.toLowerCase().includes('cancel'));
-        const valid = bookings.filter(b => !b.status?.toLowerCase().includes('cancel'));
-
-        // Calculate Nest Pass (7+ nights) and Monthly (28+ nights)
-        const nestPass = valid.filter(b => (b.nights || 0) >= 7);
-        const monthly = nestPass.filter(b => (b.nights || 0) >= 28);
-
-        const totalRevenue = valid.reduce((sum, b) => sum + (b.price || 0), 0);
-        const totalNights = valid.reduce((sum, b) => sum + (b.nights || 1), 0);
-        const adr = totalNights > 0 ? totalRevenue / totalNights : 0;
-
-        const avgLeadTime = valid
-            .filter(b => b.leadTime !== null)
-            .reduce((sum, b, _, arr) => sum + b.leadTime / arr.length, 0);
-
-        return {
-            count: bookings.length,
-            cancelled: cancelled.length,
-            valid: valid.length,
-            revenue: totalRevenue,
-            adr: adr,
-            nestPass: nestPass.length,  // NEW
-            monthly: monthly.length,     // NEW
-            avgLeadTime: Math.round(avgLeadTime),
-            bookings: bookings
-        };
-    };
 
     // Detect hostel from data
     const detectHostelFromData = (data) => {
@@ -408,16 +369,6 @@ const HostelAnalytics = () => {
         if (files.length > 0) {
             processFiles(files);
         }
-    };
-
-    // Calculate progressive week-over-week changes
-    const calculateProgressiveMetricChanges = (weekIndex, hostel, metricKey) => {
-        if (weekIndex === 0) return { change: 0, percentage: 0, isNew: true };
-
-        const currentValue = weeklyData[weekIndex].hostels[hostel]?.[metricKey] || 0;
-        const previousValue = weeklyData[weekIndex - 1].hostels[hostel]?.[metricKey] || 0;
-
-        return calculateMetricChange(currentValue, previousValue);
     };
 
     // Render metric change (DRY component)
@@ -861,7 +812,7 @@ Format your response in a clear, actionable report.`;
                                                     const data = week.hostels[hostel];
                                                     const count = data?.count || 0;
                                                     const cancelled = data?.cancelled || 0;
-                                                    const changes = calculateProgressiveMetricChanges(weekIndex, hostel, 'count');
+                                                    const changes = calculateProgressiveMetricChanges(weeklyData, weekIndex, hostel, 'count');
 
                                                     return (
                                                         <td key={week.week} className="py-4 px-2 sm:px-4 text-center">
@@ -881,7 +832,7 @@ Format your response in a clear, actionable report.`;
                                                 </td>
                                                 {weeklyData.map((week, weekIndex) => {
                                                     const revenue = week.hostels[hostel]?.revenue || 0;
-                                                    const changes = calculateProgressiveMetricChanges(weekIndex, hostel, 'revenue');
+                                                    const changes = calculateProgressiveMetricChanges(weeklyData, weekIndex, hostel, 'revenue');
 
                                                     return (
                                                         <td key={week.week} className="py-2 px-2 sm:px-4 text-center">
@@ -914,7 +865,7 @@ Format your response in a clear, actionable report.`;
                                                     const monthly = week.hostels[hostel]?.monthly || 0;
                                                     const valid = week.hostels[hostel]?.valid || 1;
                                                     const percentage = valid > 0 ? Math.round((nestPass / valid) * 100) : 0;
-                                                    const changes = calculateProgressiveMetricChanges(weekIndex, hostel, 'nestPass');
+                                                    const changes = calculateProgressiveMetricChanges(weeklyData, weekIndex, hostel, 'nestPass');
 
                                                     return (
                                                         <td key={week.week} className="py-2 px-2 sm:px-4 text-center">
