@@ -11,6 +11,7 @@ import WarningBanner from './DataInput/WarningBanner';
 import WeekSelector from './DataInput/WeekSelector';
 import HostelCard from './Dashboard/HostelCard';
 import ReservationChart from './Charts/ReservationChart';
+import AIAnalysisPanel from './Analysis/AIAnalysisPanel';
 
 const HostelAnalytics = () => {
     const [weeklyData, setWeeklyData] = useState([]);
@@ -747,21 +748,7 @@ Format your response in a clear, actionable report.`;
                 )}
 
                 {/* AI Analysis */}
-                {analysisReport && (
-                    <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <Brain className="text-indigo-600" />
-                            AI Performance Analysis
-                        </h2>
-                        <div className="prose max-w-none">
-                            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6">
-                                <pre className="whitespace-pre-wrap text-gray-800 font-sans text-sm leading-relaxed">
-                                    {analysisReport}
-                                </pre>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <AIAnalysisPanel analysisReport={analysisReport} />
 
                 {weeklyData.length === 0 && (
                     <div className="text-center py-12">
