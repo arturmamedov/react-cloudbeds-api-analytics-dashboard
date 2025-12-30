@@ -33,9 +33,9 @@ const HostelAnalytics = () => {
 
     // Extensible date period configuration
     const dateConfig = {
-        type: 'week',
-        weekStartDay: 1,
-        weekLength: 7
+        type: 'week', // Can be changed to 'month', 'custom', etc.
+        weekStartDay: 1, // Monday = 1, Sunday = 0
+        weekLength: 7 // Days in a week
     };
 
     // Utility: Format currency (DRY)
@@ -51,13 +51,14 @@ const HostelAnalytics = () => {
         return { change, percentage, isNew: false };
     };
 
-    // Calculate week boundaries
+    // Calculate week boundaries from any date (extensible for future periods)
     const calculatePeriod = (date, config = dateConfig) => {
         const targetDate = new Date(date);
 
         if (config.type === 'week') {
+            // Find Monday of the week containing this date
             const dayOfWeek = targetDate.getDay();
-            const diff = dayOfWeek === 0 ? -6 : config.weekStartDay - dayOfWeek;
+            const diff = dayOfWeek === 0 ? -6 : config.weekStartDay - dayOfWeek; // Handle Sunday
 
             const weekStart = new Date(targetDate);
             weekStart.setDate(targetDate.getDate() + diff);
@@ -70,10 +71,11 @@ const HostelAnalytics = () => {
             return { start: weekStart, end: weekEnd };
         }
 
+        // Future: Add month, custom period calculations here
         return { start: targetDate, end: targetDate };
     };
 
-    // Format period range
+    // Format period range for display (extensible)
     const formatPeriodRange = (start, end, config = dateConfig) => {
         const formatDate = (date) => {
             const day = date.getDate();
@@ -86,10 +88,11 @@ const HostelAnalytics = () => {
             return `${formatDate(start)} - ${formatDate(end)}`;
         }
 
+        // Future: Add other period formats here
         return formatDate(start);
     };
 
-    // Parse Excel dates
+    // Helper function to parse Excel dates
     const parseExcelDate = (value) => {
         if (!value) return null;
         if (typeof value === 'number') {
@@ -104,7 +107,7 @@ const HostelAnalytics = () => {
         return null;
     };
 
-    // Parse price
+    // Parse price from string (€17,00 → 17.00)
     const parsePrice = (priceStr) => {
         if (!priceStr) return 0;
         const cleanPrice = priceStr.toString().replace(/[€,]/g, '').replace(',', '.');
@@ -135,12 +138,14 @@ const HostelAnalytics = () => {
         };
     };
 
-    // Detect hostel
+    // Detect hostel from data
     const detectHostelFromData = (data) => {
+        // Try to find hostel ID in URLs first
         for (const [hostelName, config] of Object.entries(hostelConfig)) {
             if (data.includes(config.id)) return hostelName;
         }
 
+        // Try to find hostel name in data
         for (const hostelName of Object.keys(hostelConfig)) {
             if (data.toLowerCase().includes(hostelName.toLowerCase())) return hostelName;
         }
@@ -148,7 +153,7 @@ const HostelAnalytics = () => {
         return null;
     };
 
-    // Detect week
+    // Auto-detect week from booking dates
     const detectWeekFromBookings = (bookings) => {
         const bookingDates = bookings
             .map(b => parseExcelDate(b.bookingDate))
@@ -157,11 +162,12 @@ const HostelAnalytics = () => {
 
         if (bookingDates.length === 0) return null;
 
+        // Use the earliest booking date to determine the week
         const period = calculatePeriod(bookingDates[0]);
         return formatPeriodRange(period.start, period.end);
     };
 
-    // Validate week
+    // Validate if bookings match selected week
     const validateWeekMatch = (bookings, expectedWeek) => {
         const detectedWeek = detectWeekFromBookings(bookings);
         const newWarnings = [];
@@ -173,11 +179,12 @@ const HostelAnalytics = () => {
         return newWarnings;
     };
 
-    // Parse pasted data
+    // Parse pasted data (both HTML and text)
     const parsePastedData = (data) => {
         const reservations = [];
 
         try {
+            // Try to parse as HTML first
             if (data.includes('<table') || data.includes('<tr')) {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(data, 'text/html');
@@ -207,6 +214,7 @@ const HostelAnalytics = () => {
                     }
                 });
             } else {
+                // Parse as plain text
                 const lines = data.split('\n').filter(line => line.trim());
 
                 lines.forEach(line => {
@@ -278,6 +286,7 @@ const HostelAnalytics = () => {
                 return;
             }
 
+            // Determine week (user selection or auto-detect)
             let weekRange = '';
             if (selectedWeekStart) {
                 const period = calculatePeriod(new Date(selectedWeekStart));
@@ -292,11 +301,14 @@ const HostelAnalytics = () => {
                 return;
             }
 
+            // Validate week match
             const weekWarnings = validateWeekMatch(reservations, weekRange);
             setWarnings(weekWarnings);
 
+            // Calculate metrics
             const metrics = calculateHostelMetrics(reservations);
 
+            // Add new week data
             const newWeekData = {
                 week: weekRange,
                 date: selectedWeekStart ? new Date(selectedWeekStart) : new Date(),
@@ -304,6 +316,7 @@ const HostelAnalytics = () => {
             };
 
             setWeeklyData(prev => {
+                // Check if week already exists and merge data
                 const existingWeekIndex = prev.findIndex(w => w.week === weekRange);
                 if (existingWeekIndex >= 0) {
                     const updated = [...prev];
@@ -326,10 +339,12 @@ const HostelAnalytics = () => {
         }
     };
 
-    // Sort weekly data
-    const sortWeeklyData = (data) => [...data].sort((a, b) => a.date - b.date);
+    // Sort weekly data chronologically (oldest to newest)
+    const sortWeeklyData = (data) => {
+        return [...data].sort((a, b) => a.date - b.date);
+    };
 
-    // Process files
+    // Process uploaded files (now supports folders)
     const processFiles = async (files) => {
         setIsUploading(true);
         setWarnings([]);
@@ -337,6 +352,7 @@ const HostelAnalytics = () => {
         const weekReservations = {};
 
         try {
+            // Filter for Excel files
             const excelFiles = fileArray.filter(file =>
                 file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
             );
@@ -355,8 +371,10 @@ const HostelAnalytics = () => {
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
+                // Skip header row and process reservations
                 const reservations = jsonData.slice(1).filter(row => row.length > 0);
 
+                // Filter for direct bookings
                 const directBookings = reservations.filter(row => {
                     const source = row[33];
                     return source && source.includes('Sitio web');
@@ -381,11 +399,13 @@ const HostelAnalytics = () => {
                 weekReservations[hostelName] = calculateHostelMetrics(bookings);
             }
 
+            // Determine week (user selection or auto-detect)
             let weekRange = '';
             if (selectedWeekStart) {
                 const period = calculatePeriod(new Date(selectedWeekStart));
                 weekRange = formatPeriodRange(period.start, period.end);
             } else {
+                // Auto-detect from first file's data
                 const allBookingDates = Object.values(weekReservations)
                     .flatMap(h => h.bookings.map(b => parseExcelDate(b.bookingDate)))
                     .filter(d => d)
@@ -410,6 +430,7 @@ const HostelAnalytics = () => {
             };
 
             setWeeklyData(prev => {
+                // Check if week already exists and merge
                 const existingWeekIndex = prev.findIndex(w => w.week === weekRange);
                 if (existingWeekIndex >= 0) {
                     const updated = [...prev];
@@ -430,13 +451,17 @@ const HostelAnalytics = () => {
         }
     };
 
-    // Process entry (for folder drag & drop)
+    // Process file system entries (folders and files)
     const processEntry = async (entry) => {
         if (entry.isFile) {
-            return new Promise((resolve) => entry.file(resolve));
+            return new Promise((resolve) => {
+                entry.file(resolve);
+            });
         } else if (entry.isDirectory) {
             const reader = entry.createReader();
-            const entries = await new Promise((resolve) => reader.readEntries(resolve));
+            const entries = await new Promise((resolve) => {
+                reader.readEntries(resolve);
+            });
 
             const files = [];
             for (const childEntry of entries) {
@@ -452,18 +477,21 @@ const HostelAnalytics = () => {
         return [];
     };
 
-    // Handle drop
+    // Handle file drop (including folders)
     const handleDrop = useCallback(async (e) => {
         e.preventDefault();
         const items = e.dataTransfer.items;
 
+        // Process drag & drop items (supports folders)
         if (items) {
             const promises = [];
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
                 if (item.kind === 'file') {
                     const entry = item.webkitGetAsEntry();
-                    if (entry) promises.push(processEntry(entry));
+                    if (entry) {
+                        promises.push(processEntry(entry));
+                    }
                 }
             }
 
@@ -478,20 +506,27 @@ const HostelAnalytics = () => {
                 alert('No Excel files found in the dropped items');
             }
         } else {
+            // Fallback for simple file drag & drop
             const files = e.dataTransfer.files;
-            if (files.length > 0) processFiles(files);
+            if (files.length > 0) {
+                processFiles(files);
+            }
         }
     }, []);
 
-    const handleDragOver = useCallback((e) => e.preventDefault(), []);
+    const handleDragOver = useCallback((e) => {
+        e.preventDefault();
+    }, []);
 
-    // Handle file input
+    // Handle file/folder input
     const handleFileInput = (e) => {
         const files = e.target.files;
-        if (files.length > 0) processFiles(files);
+        if (files.length > 0) {
+            processFiles(files);
+        }
     };
 
-    // Calculate progressive metric changes (DRY)
+    // Calculate progressive week-over-week changes
     const calculateProgressiveMetricChanges = (weekIndex, hostel, metricKey) => {
         if (weekIndex === 0) return { change: 0, percentage: 0, isNew: true };
 
@@ -519,29 +554,31 @@ const HostelAnalytics = () => {
         );
     };
 
-    // AI Analysis
+    // Get AI analysis
     const getAIAnalysis = async () => {
         if (weeklyData.length === 0) return;
 
         setIsAnalyzing(true);
 
         try {
-            const prompt = `Analyze this hostel reservation data:
+            const prompt = `Analyze this hostel reservation data and provide insights on performance trends and reasons for changes:
 
 ${JSON.stringify(weeklyData, null, 2)}
 
-Provide:
+Please provide:
 1. Key performance insights
 2. Trends by hostel
-3. Reasons for week-over-week changes
-4. Recommendations
-5. Patterns in bookings, revenue, and ADR
+3. Possible reasons for week-over-week changes
+4. Recommendations for improvement
+5. Notable patterns in booking behavior and ADR
 
-Format as a clear, actionable report.`;
+Format your response in a clear, actionable report.`;
 
             const response = await fetch("https://api.anthropic.com/v1/messages", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                },
                 body: JSON.stringify({
                     model: "claude-sonnet-4-20250514",
                     max_tokens: 1000,
@@ -550,17 +587,18 @@ Format as a clear, actionable report.`;
             });
 
             const data = await response.json();
-            setAnalysisReport(data.content[0].text);
+            const analysis = data.content[0].text;
+            setAnalysisReport(analysis);
 
         } catch (error) {
             console.error('Error getting AI analysis:', error);
-            setAnalysisReport('Sorry, there was an error. Please try again.');
+            setAnalysisReport('Sorry, there was an error generating the analysis. Please try again.');
         } finally {
             setIsAnalyzing(false);
         }
     };
 
-    // Get hostels
+    // Get all unique hostels
     const getAllHostels = () => {
         const hostelSet = new Set();
         weeklyData.forEach(week => {
@@ -611,7 +649,7 @@ Format as a clear, actionable report.`;
                     </div>
                 )}
 
-                {/* Input Section */}
+                {/* Input Method Toggle */}
                 <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
                     <div className="flex flex-col sm:flex-row gap-4 mb-6">
                         <button
@@ -654,7 +692,7 @@ Format as a clear, actionable report.`;
                         )}
                     </div>
 
-                    {/* File Upload */}
+                    {/* File Upload Section */}
                     {inputMethod === 'file' && (
                         <div>
                             <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -679,7 +717,7 @@ Format as a clear, actionable report.`;
                                         </p>
                                         <div className="bg-blue-100 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4">
                                             <p>✅ Single files: Flamingo.xlsx, Puerto.xlsx, etc.</p>
-                                            <p>✅ Folders: Drag & drop entire week folder with all Excel files</p>
+                                            <p>✅ Folders: Upload entire week folder with all Excel files</p>
                                         </div>
                                     </div>
                                     <div className="flex gap-4">
@@ -719,7 +757,7 @@ Format as a clear, actionable report.`;
                         </div>
                     )}
 
-                    {/* Copy-Paste */}
+                    {/* Copy-Paste Section */}
                     {inputMethod === 'paste' && (
                         <div>
                             <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -751,7 +789,7 @@ Format as a clear, actionable report.`;
                                     <textarea
                                         value={pasteData}
                                         onChange={(e) => setPasteData(e.target.value)}
-                                        placeholder="Paste your CloudBeds reservation table here..."
+                                        placeholder="Paste your CloudBeds reservation table here (either HTML or tab-separated text)..."
                                         className="w-full h-40 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                                     />
                                 </div>
@@ -775,7 +813,7 @@ Format as a clear, actionable report.`;
                     )}
                 </div>
 
-                {/* Latest Week Cards */}
+                {/* Current Week Summary - Responsive Grid */}
                 {weeklyData.length > 0 && (
                     <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 mb-8">
                         <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
