@@ -82,10 +82,10 @@ This project is built for **Nests Hostels**, a Spanish hostel chain, with a focu
 - Use existing utilities first
 - Every dependency is a maintenance burden
 
-❌ **Major Architectural Changes**
-- No "let's rebuild this better" suggestions
-- Work within existing structure
-- Respect the monolithic component design
+❌ **Over-Engineering**
+- Don't create abstractions prematurely
+- Work within existing component structure
+- Respect the pragmatic, component-based design
 
 ### What to FOCUS ON
 
@@ -141,8 +141,8 @@ This project is built for **Nests Hostels**, a Spanish hostel chain, with a focu
 ❌ BAD: "The right way is to extract this into a custom hook."
 ❌ BAD: "Industry standard is to use TypeScript for this."
 
-✅ GOOD: "For this monolithic component design, keeping state local
-         is simpler and aligns with the project's pragmatic approach."
+✅ GOOD: "For this component-based design, keeping state local in the
+         main orchestrator is simpler and aligns with the project's pragmatic approach."
 
 ✅ GOOD: "We could extract this into a custom hook, but since it's
          only used once, inline logic is clearer per the project
@@ -187,9 +187,12 @@ is before making changes. Should I add profiling instructions?"
 ## 🏗️ Architecture Patterns
 
 ### Component Structure
-- **Monolithic Component Design**: Single `HostelAnalytics.jsx` component manages all state and logic
+- **Component-Based Design**: Modular components organized by feature area
+- **Main Orchestrator**: `HostelAnalytics.jsx` manages state and coordinates child components
+- **Feature-Organized Components**: Grouped into Dashboard, DataInput, Charts, and Analysis
+- **Utility Modules**: Centralized business logic in utils (dateUtils, metricsCalculator, etc.)
 - **React Hooks**: Extensive use of `useState` and `useCallback` for state management
-- **No External State Management**: All state is local to the component (no Redux/Context)
+- **No External State Management**: All state is local to the main component (no Redux/Context)
 
 ### Data Flow
 ```
@@ -625,21 +628,45 @@ The codebase includes extension points:
 
 ## 📚 Key Files Reference
 
-### Primary Component
-- `src/components/HostelAnalytics.jsx` - Main component (1100+ lines)
+### Main Component
+- `src/components/HostelAnalytics.jsx` - Main orchestrator component (428 lines)
+
+### Dashboard Components
+- `src/components/Dashboard/HostelCard.jsx` - Individual hostel metric cards
+- `src/components/Dashboard/LatestWeekSummary.jsx` - Latest week grid display
+- `src/components/Dashboard/PerformanceTable.jsx` - Weekly comparison table (largest component, 239 lines)
+- `src/components/Dashboard/MetricChange.jsx` - Trend indicator component (↑↓)
+
+### Data Input Components
+- `src/components/DataInput/DataInputPanel.jsx` - Complete data input section (file + paste)
+- `src/components/DataInput/WeekSelector.jsx` - Week date selection
+- `src/components/DataInput/WarningBanner.jsx` - Warning display component
+
+### Charts & Analysis
+- `src/components/Charts/ReservationChart.jsx` - Chart visualization (line/bar)
+- `src/components/Analysis/AIAnalysisPanel.jsx` - AI analysis display
+
+### Utilities
+- `src/utils/index.js` - Centralized utility exports
+- `src/utils/dateUtils.js` - Date calculations and week detection
+- `src/utils/formatters.js` - Currency and price formatting
+- `src/utils/metricsCalculator.js` - Core business logic (ADR, metrics)
+- `src/utils/dataParser.js` - Data parsing and transformation
+
+### Configuration
+- `src/config/hostelConfig.js` - Hostel configuration (IDs and names)
+- `vite.config.js` - Dev server (port 3333)
+- `tailwind.config.js` - Custom colors and animations
+- `package.json` - Dependencies and scripts
 
 ### Styling
 - `src/index.css` - Tailwind setup + custom styles
-- `tailwind.config.js` - Custom colors and animations
-
-### Configuration
-- `vite.config.js` - Dev server (port 3333)
-- `package.json` - Dependencies and scripts
 
 ### Documentation
 - `README.md` - User-facing documentation
 - `documentation.md` - Setup and configuration guide
 - `CLAUDE.md` - This file (AI development guide)
+- `REFACTORING_STEPS.md` - Refactoring progress tracking
 
 ## 🎓 Learning Resources
 

@@ -129,11 +129,31 @@ npm run lint
 ### Project Structure
 ```
 src/
-├── components/          # React components
-├── utils/              # Utility functions
-├── hooks/              # Custom React hooks
-├── styles/             # CSS and styling
-└── types/              # TypeScript definitions
+├── components/
+│   ├── HostelAnalytics.jsx      # Main orchestrator component
+│   ├── Dashboard/               # Dashboard UI components
+│   │   ├── HostelCard.jsx
+│   │   ├── LatestWeekSummary.jsx
+│   │   ├── PerformanceTable.jsx
+│   │   └── MetricChange.jsx
+│   ├── DataInput/               # Data input components
+│   │   ├── DataInputPanel.jsx
+│   │   ├── WeekSelector.jsx
+│   │   └── WarningBanner.jsx
+│   ├── Charts/                  # Chart components
+│   │   └── ReservationChart.jsx
+│   └── Analysis/                # AI analysis components
+│       └── AIAnalysisPanel.jsx
+├── utils/                       # Utility functions
+│   ├── index.js                 # Centralized exports
+│   ├── dateUtils.js             # Date calculations
+│   ├── formatters.js            # Currency formatting
+│   ├── metricsCalculator.js     # Business logic
+│   └── dataParser.js            # Data transformation
+├── config/
+│   └── hostelConfig.js          # Hostel configuration
+├── index.css                    # Tailwind setup
+└── main.jsx                     # App entry point
 ```
 
 ## 🚀 Deployment
