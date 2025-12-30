@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Upload, TrendingUp, TrendingDown, Calendar, BarChart3, Brain, FileText, Copy, ChevronDown, ChevronUp, LineChart, FolderOpen, AlertTriangle, DollarSign } from 'lucide-react';
 import { LineChart as RechartsLineChart, BarChart as RechartsBarChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
+import { hostelConfig } from '../config/hostelConfig';
 
 const HostelAnalytics = () => {
     const [weeklyData, setWeeklyData] = useState([]);
@@ -15,21 +16,6 @@ const HostelAnalytics = () => {
     const [inputMethod, setInputMethod] = useState('file');
     const [selectedWeekStart, setSelectedWeekStart] = useState('');
     const [warnings, setWarnings] = useState([]);
-
-    // Updated hostel configuration with correct IDs
-    const hostelConfig = {
-        'Flamingo': { id: '6733', name: 'Flamingo' },
-        'Puerto': { id: '316328', name: 'Puerto' },
-        'Arena': { id: '315588', name: 'Arena' },
-        'Duque': { id: '316438', name: 'Duque' },
-        'Las Palmas': { id: '316428', name: 'Las Palmas' },
-        'Aguere': { id: '316437', name: 'Aguere' },
-        'Medano': { id: '316440', name: 'Medano' },
-        'Los Amigos': { id: '316443', name: 'Los Amigos' },
-        'Cisne': { id: '316442', name: 'Cisne' },
-        'Ashavana': { id: '316441', name: 'Ashavana' },
-        'Las Eras': { id: '316439', name: 'Las Eras' },
-    };
 
     // Extensible date period configuration
     const dateConfig = {
