@@ -119,6 +119,10 @@ const HostelAnalytics = () => {
         const cancelled = bookings.filter(b => b.status?.toLowerCase().includes('cancel'));
         const valid = bookings.filter(b => !b.status?.toLowerCase().includes('cancel'));
 
+        // Calculate Nest Pass (7+ nights) and Monthly (28+ nights)
+        const nestPass = valid.filter(b => (b.nights || 0) >= 7);
+        const monthly = nestPass.filter(b => (b.nights || 0) >= 28);
+
         const totalRevenue = valid.reduce((sum, b) => sum + (b.price || 0), 0);
         const totalNights = valid.reduce((sum, b) => sum + (b.nights || 1), 0);
         const adr = totalNights > 0 ? totalRevenue / totalNights : 0;
@@ -133,6 +137,8 @@ const HostelAnalytics = () => {
             valid: valid.length,
             revenue: totalRevenue,
             adr: adr,
+            nestPass: nestPass.length,  // NEW
+            monthly: monthly.length,     // NEW
             avgLeadTime: Math.round(avgLeadTime),
             bookings: bookings
         };
@@ -834,6 +840,14 @@ Format your response in a clear, actionable report.`;
                                         </div>
                                     )}
 
+                                    {/* Nest Pass Display */}
+                                    {data.nestPass > 0 && (
+                                        <div className="text-xs text-blue-600 mb-2">
+                                            {data.nestPass} Nest Pass ({Math.round((data.nestPass / data.valid) * 100)}%)
+                                            {data.monthly > 0 && ` | ${data.monthly} Monthly`}
+                                        </div>
+                                    )}
+
                                     <div className="space-y-1 text-xs text-gray-500 border-t border-green-200 pt-2">
                                         <div className="flex justify-between">
                                             <span>Revenue:</span>
@@ -1013,6 +1027,28 @@ Format your response in a clear, actionable report.`;
                                                     );
                                                 })}
                                             </tr>
+
+                                            {/* Nest Pass Row */}
+                                            <tr className="border-b border-gray-200 hover:bg-gray-50 bg-purple-50">
+                                                <td className="py-2 px-2 sm:px-4 pl-8 text-sm text-gray-600">Nest Pass</td>
+                                                {weeklyData.map((week, weekIndex) => {
+                                                    const nestPass = week.hostels[hostel]?.nestPass || 0;
+                                                    const monthly = week.hostels[hostel]?.monthly || 0;
+                                                    const valid = week.hostels[hostel]?.valid || 1;
+                                                    const percentage = valid > 0 ? Math.round((nestPass / valid) * 100) : 0;
+                                                    const changes = calculateProgressiveMetricChanges(weekIndex, hostel, 'nestPass');
+
+                                                    return (
+                                                        <td key={week.week} className="py-2 px-2 sm:px-4 text-center">
+                                                            <div className="text-md font-medium text-purple-700">
+                                                                {nestPass} ({percentage}%)
+                                                                {monthly > 0 && <span className="text-xs"> | {monthly} Monthly</span>}
+                                                            </div>
+                                                            <MetricChange changes={changes} />
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
                                         </React.Fragment>
                                     ))}
 
@@ -1055,6 +1091,33 @@ Format your response in a clear, actionable report.`;
                                                 <td key={week.week} className="py-4 px-2 sm:px-4 text-center">
                                                     <div className="text-xl font-bold text-green-700">{formatCurrency(total)}</div>
                                                     {weekIndex > 0 && <MetricChange changes={changes} isCurrency={true} />}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+
+                                    <tr className="bg-purple-100 font-bold">
+                                        <td className="py-4 px-2 sm:px-4 font-bold text-gray-800">
+                                            TOTAL NEST PASS
+                                        </td>
+                                        {weeklyData.map((week, weekIndex) => {
+                                            const totalNestPass = Object.values(week.hostels).reduce((sum, h) => sum + (h.nestPass || 0), 0);
+                                            const totalMonthly = Object.values(week.hostels).reduce((sum, h) => sum + (h.monthly || 0), 0);
+                                            const totalValid = Object.values(week.hostels).reduce((sum, h) => sum + (h.valid || 0), 0);
+                                            const percentage = totalValid > 0 ? ((totalNestPass / totalValid) * 100).toFixed(1) : 0;
+
+                                            const prevNestPass = weekIndex > 0
+                                                ? Object.values(weeklyData[weekIndex - 1].hostels).reduce((sum, h) => sum + (h.nestPass || 0), 0)
+                                                : 0;
+                                            const changes = calculateMetricChange(totalNestPass, prevNestPass);
+
+                                            return (
+                                                <td key={week.week} className="py-4 px-2 sm:px-4 text-center">
+                                                    <div className="text-xl font-bold text-purple-700">
+                                                        {totalNestPass} ({percentage}%)
+                                                        {totalMonthly > 0 && <div className="text-sm">({totalMonthly} Monthly)</div>}
+                                                    </div>
+                                                    {weekIndex > 0 && <MetricChange changes={changes} />}
                                                 </td>
                                             );
                                         })}
