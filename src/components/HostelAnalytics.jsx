@@ -4,6 +4,7 @@ import { LineChart as RechartsLineChart, BarChart as RechartsBarChart, Line, Bar
 import * as XLSX from 'xlsx';
 import { hostelConfig } from '../config/hostelConfig';
 import { dateConfig, calculatePeriod, formatPeriodRange, parseExcelDate, calculateLeadTime, detectWeekFromBookings, validateWeekMatch } from '../utils/dateUtils';
+import { formatCurrency, parsePrice } from '../utils/formatters';
 
 const HostelAnalytics = () => {
     const [weeklyData, setWeeklyData] = useState([]);
@@ -18,9 +19,6 @@ const HostelAnalytics = () => {
     const [selectedWeekStart, setSelectedWeekStart] = useState('');
     const [warnings, setWarnings] = useState([]);
 
-    // Utility: Format currency (DRY)
-    const formatCurrency = (amount) => `€${amount.toFixed(2)}`;
-
     // Utility: Calculate metric change (DRY)
     const calculateMetricChange = (current, previous) => {
         if (previous === 0 || previous === undefined) {
@@ -29,13 +27,6 @@ const HostelAnalytics = () => {
         const change = current - previous;
         const percentage = Math.round((change / previous) * 100);
         return { change, percentage, isNew: false };
-    };
-
-    // Parse price from string (€17,00 → 17.00)
-    const parsePrice = (priceStr) => {
-        if (!priceStr) return 0;
-        const cleanPrice = priceStr.toString().replace(/[€,]/g, '').replace(',', '.');
-        return parseFloat(cleanPrice) || 0;
     };
 
     // Calculate hostel metrics (DRY helper)
