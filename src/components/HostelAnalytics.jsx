@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, TrendingUp, TrendingDown, Calendar, BarChart3, Brain, FileText, AlertCircle, Copy, ChevronDown, ChevronUp, LineChart, FolderOpen, AlertTriangle } from 'lucide-react';
+import { Upload, TrendingUp, TrendingDown, Calendar, BarChart3, Brain, FileText, Copy, ChevronDown, ChevronUp, LineChart, FolderOpen, AlertTriangle, DollarSign } from 'lucide-react';
 import { LineChart as RechartsLineChart, BarChart as RechartsBarChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
 
@@ -33,19 +33,31 @@ const HostelAnalytics = () => {
 
     // Extensible date period configuration
     const dateConfig = {
-        type: 'week', // Can be changed to 'month', 'custom', etc.
-        weekStartDay: 1, // Monday = 1, Sunday = 0
-        weekLength: 7 // Days in a week
+        type: 'week',
+        weekStartDay: 1,
+        weekLength: 7
     };
 
-    // Calculate week boundaries from any date (extensible for future periods)
+    // Utility: Format currency (DRY)
+    const formatCurrency = (amount) => `€${amount.toFixed(2)}`;
+
+    // Utility: Calculate metric change (DRY)
+    const calculateMetricChange = (current, previous) => {
+        if (previous === 0 || previous === undefined) {
+            return { change: current, percentage: current > 0 ? 100 : 0, isNew: true };
+        }
+        const change = current - previous;
+        const percentage = Math.round((change / previous) * 100);
+        return { change, percentage, isNew: false };
+    };
+
+    // Calculate week boundaries
     const calculatePeriod = (date, config = dateConfig) => {
         const targetDate = new Date(date);
 
         if (config.type === 'week') {
-            // Find Monday of the week containing this date
             const dayOfWeek = targetDate.getDay();
-            const diff = dayOfWeek === 0 ? -6 : config.weekStartDay - dayOfWeek; // Handle Sunday
+            const diff = dayOfWeek === 0 ? -6 : config.weekStartDay - dayOfWeek;
 
             const weekStart = new Date(targetDate);
             weekStart.setDate(targetDate.getDate() + diff);
@@ -58,11 +70,10 @@ const HostelAnalytics = () => {
             return { start: weekStart, end: weekEnd };
         }
 
-        // Future: Add month, custom period calculations here
         return { start: targetDate, end: targetDate };
     };
 
-    // Format period range for display (extensible)
+    // Format period range
     const formatPeriodRange = (start, end, config = dateConfig) => {
         const formatDate = (date) => {
             const day = date.getDate();
@@ -75,16 +86,14 @@ const HostelAnalytics = () => {
             return `${formatDate(start)} - ${formatDate(end)}`;
         }
 
-        // Future: Add other period formats here
         return formatDate(start);
     };
 
-    // Helper function to parse Excel dates
+    // Parse Excel dates
     const parseExcelDate = (value) => {
         if (!value) return null;
         if (typeof value === 'number') {
-            const date = new Date((value - 25569) * 86400 * 1000);
-            return date;
+            return new Date((value - 25569) * 86400 * 1000);
         }
         if (typeof value === 'string') {
             const parts = value.split('/');
@@ -95,33 +104,51 @@ const HostelAnalytics = () => {
         return null;
     };
 
-    // Parse price from string (€17,00 → 17.00)
+    // Parse price
     const parsePrice = (priceStr) => {
         if (!priceStr) return 0;
         const cleanPrice = priceStr.toString().replace(/[€,]/g, '').replace(',', '.');
         return parseFloat(cleanPrice) || 0;
     };
 
-    // Detect hostel from data
+    // Calculate hostel metrics (DRY helper)
+    const calculateHostelMetrics = (bookings) => {
+        const cancelled = bookings.filter(b => b.status?.toLowerCase().includes('cancel'));
+        const valid = bookings.filter(b => !b.status?.toLowerCase().includes('cancel'));
+
+        const totalRevenue = valid.reduce((sum, b) => sum + (b.price || 0), 0);
+        const totalNights = valid.reduce((sum, b) => sum + (b.nights || 1), 0);
+        const adr = totalNights > 0 ? totalRevenue / totalNights : 0;
+
+        const avgLeadTime = valid
+            .filter(b => b.leadTime !== null)
+            .reduce((sum, b, _, arr) => sum + b.leadTime / arr.length, 0);
+
+        return {
+            count: bookings.length,
+            cancelled: cancelled.length,
+            valid: valid.length,
+            revenue: totalRevenue,
+            adr: adr,
+            avgLeadTime: Math.round(avgLeadTime),
+            bookings: bookings
+        };
+    };
+
+    // Detect hostel
     const detectHostelFromData = (data) => {
-        // Try to find hostel ID in URLs first
         for (const [hostelName, config] of Object.entries(hostelConfig)) {
-            if (data.includes(config.id)) {
-                return hostelName;
-            }
+            if (data.includes(config.id)) return hostelName;
         }
 
-        // Try to find hostel name in data
         for (const hostelName of Object.keys(hostelConfig)) {
-            if (data.toLowerCase().includes(hostelName.toLowerCase())) {
-                return hostelName;
-            }
+            if (data.toLowerCase().includes(hostelName.toLowerCase())) return hostelName;
         }
 
         return null;
     };
 
-    // Auto-detect week from booking dates
+    // Detect week
     const detectWeekFromBookings = (bookings) => {
         const bookingDates = bookings
             .map(b => parseExcelDate(b.bookingDate))
@@ -130,12 +157,11 @@ const HostelAnalytics = () => {
 
         if (bookingDates.length === 0) return null;
 
-        // Use the earliest booking date to determine the week
         const period = calculatePeriod(bookingDates[0]);
         return formatPeriodRange(period.start, period.end);
     };
 
-    // Validate if bookings match selected week
+    // Validate week
     const validateWeekMatch = (bookings, expectedWeek) => {
         const detectedWeek = detectWeekFromBookings(bookings);
         const newWarnings = [];
@@ -147,12 +173,11 @@ const HostelAnalytics = () => {
         return newWarnings;
     };
 
-    // Parse pasted data (both HTML and text)
-    const parsePastedData = (data, hostelName) => {
+    // Parse pasted data
+    const parsePastedData = (data) => {
         const reservations = [];
 
         try {
-            // Try to parse as HTML first
             if (data.includes('<table') || data.includes('<tr')) {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(data, 'text/html');
@@ -172,21 +197,16 @@ const HostelAnalytics = () => {
 
                         if (reservation && bookingDate && source?.includes('Sitio web')) {
                             reservations.push({
-                                reservation,
-                                bookingDate,
-                                checkin,
-                                checkout,
+                                reservation, bookingDate, checkin, checkout,
                                 nights: parseInt(nights) || 1,
                                 price: parsePrice(price),
-                                status,
-                                source,
+                                status, source,
                                 leadTime: calculateLeadTime(bookingDate, checkin)
                             });
                         }
                     }
                 });
             } else {
-                // Parse as plain text
                 const lines = data.split('\n').filter(line => line.trim());
 
                 lines.forEach(line => {
@@ -203,14 +223,10 @@ const HostelAnalytics = () => {
 
                         if (reservation && bookingDate && source?.includes('Sitio web')) {
                             reservations.push({
-                                reservation,
-                                bookingDate,
-                                checkin,
-                                checkout,
+                                reservation, bookingDate, checkin, checkout,
                                 nights: parseInt(nights) || 1,
                                 price: parsePrice(price),
-                                status,
-                                source,
+                                status, source,
                                 leadTime: calculateLeadTime(bookingDate, checkin)
                             });
                         }
@@ -254,7 +270,7 @@ const HostelAnalytics = () => {
                 return;
             }
 
-            const reservations = parsePastedData(pasteData, detectedHostel);
+            const reservations = parsePastedData(pasteData);
 
             if (reservations.length === 0) {
                 alert('No valid reservations found in the pasted data');
@@ -262,7 +278,6 @@ const HostelAnalytics = () => {
                 return;
             }
 
-            // Determine week (user selection or auto-detect)
             let weekRange = '';
             if (selectedWeekStart) {
                 const period = calculatePeriod(new Date(selectedWeekStart));
@@ -277,48 +292,25 @@ const HostelAnalytics = () => {
                 return;
             }
 
-            // Validate week match
             const weekWarnings = validateWeekMatch(reservations, weekRange);
             setWarnings(weekWarnings);
 
-            // Calculate metrics
-            const totalReservations = reservations.length;
-            const cancelledReservations = reservations.filter(r => r.status?.toLowerCase().includes('cancel')).length;
-            const validReservations = reservations.filter(r => !r.status?.toLowerCase().includes('cancel'));
+            const metrics = calculateHostelMetrics(reservations);
 
-            const totalRevenue = validReservations.reduce((sum, r) => sum + r.price, 0);
-            const totalNights = validReservations.reduce((sum, r) => sum + r.nights, 0);
-            const adr = totalNights > 0 ? totalRevenue / totalNights : 0;
-
-            const avgLeadTime = validReservations.filter(r => r.leadTime !== null)
-                .reduce((sum, r, _, arr) => sum + r.leadTime / arr.length, 0);
-
-            // Add new week data
             const newWeekData = {
                 week: weekRange,
                 date: selectedWeekStart ? new Date(selectedWeekStart) : new Date(),
-                hostels: {
-                    [detectedHostel]: {
-                        count: totalReservations,
-                        cancelled: cancelledReservations,
-                        valid: validReservations.length,
-                        adr: adr,
-                        avgLeadTime: Math.round(avgLeadTime),
-                        bookings: reservations
-                    }
-                }
+                hostels: { [detectedHostel]: metrics }
             };
 
             setWeeklyData(prev => {
-                // Check if week already exists and merge data
                 const existingWeekIndex = prev.findIndex(w => w.week === weekRange);
                 if (existingWeekIndex >= 0) {
                     const updated = [...prev];
-                    updated[existingWeekIndex].hostels[detectedHostel] = newWeekData.hostels[detectedHostel];
+                    updated[existingWeekIndex].hostels[detectedHostel] = metrics;
                     return sortWeeklyData(updated);
                 } else {
-                    const updated = [...prev, newWeekData];
-                    return sortWeeklyData(updated);
+                    return sortWeeklyData([...prev, newWeekData]);
                 }
             });
 
@@ -334,12 +326,10 @@ const HostelAnalytics = () => {
         }
     };
 
-    // Sort weekly data chronologically (oldest to newest)
-    const sortWeeklyData = (data) => {
-        return [...data].sort((a, b) => a.date - b.date);
-    };
+    // Sort weekly data
+    const sortWeeklyData = (data) => [...data].sort((a, b) => a.date - b.date);
 
-    // Process uploaded files (now supports folders)
+    // Process files
     const processFiles = async (files) => {
         setIsUploading(true);
         setWarnings([]);
@@ -347,7 +337,6 @@ const HostelAnalytics = () => {
         const weekReservations = {};
 
         try {
-            // Filter for Excel files
             const excelFiles = fileArray.filter(file =>
                 file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
             );
@@ -366,73 +355,37 @@ const HostelAnalytics = () => {
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-                // Skip header row and process reservations
                 const reservations = jsonData.slice(1).filter(row => row.length > 0);
 
-                // Filter for direct bookings
                 const directBookings = reservations.filter(row => {
                     const source = row[33];
                     return source && source.includes('Sitio web');
                 });
 
-                // Separate cancelled and valid bookings
-                const cancelledBookings = directBookings.filter(row => {
-                    const status = row[35];
-                    return status && status.toLowerCase().includes('cancel');
-                });
-
-                const validBookings = directBookings.filter(row => {
-                    const status = row[35];
-                    return !(status && status.toLowerCase().includes('cancel'));
-                });
-
-                // Calculate ADR
-                const totalRevenue = validBookings.reduce((sum, row) => sum + (parseFloat(row[27]) || 0), 0);
-                const totalNights = validBookings.reduce((sum, row) => sum + (parseInt(row[25]) || 1), 0);
-                const adr = totalNights > 0 ? totalRevenue / totalNights : 0;
-
-                weekReservations[hostelName] = {
-                    count: directBookings.length,
-                    cancelled: cancelledBookings.length,
-                    valid: validBookings.length,
-                    adr: adr,
-                    bookings: directBookings.map(row => ({
-                        bookingDate: row[32],
-                        arrivalDate: row[23],
-                        status: row[35],
-                        nights: row[25],
-                        price: row[27],
-                        leadTime: (() => {
-                            const bookDate = parseExcelDate(row[32]);
-                            const arrDate = parseExcelDate(row[23]);
-                            if (bookDate && arrDate) {
-                                return Math.floor((arrDate - bookDate) / (1000 * 60 * 60 * 24));
-                            }
-                            return null;
-                        })()
-                    })),
-                    avgLeadTime: (() => {
-                        const leadTimes = directBookings.map(row => {
-                            const bookDate = parseExcelDate(row[32]);
-                            const arrDate = parseExcelDate(row[23]);
-                            if (bookDate && arrDate) {
-                                return Math.floor((arrDate - bookDate) / (1000 * 60 * 60 * 24));
-                            }
-                            return null;
-                        }).filter(lt => lt !== null);
-
-                        return leadTimes.length > 0 ? Math.round(leadTimes.reduce((sum, lt) => sum + lt, 0) / leadTimes.length) : 0;
+                const bookings = directBookings.map(row => ({
+                    bookingDate: row[32],
+                    arrivalDate: row[23],
+                    status: row[35],
+                    nights: row[25],
+                    price: parseFloat(row[27]) || 0,
+                    leadTime: (() => {
+                        const bookDate = parseExcelDate(row[32]);
+                        const arrDate = parseExcelDate(row[23]);
+                        if (bookDate && arrDate) {
+                            return Math.floor((arrDate - bookDate) / (1000 * 60 * 60 * 24));
+                        }
+                        return null;
                     })()
-                };
+                }));
+
+                weekReservations[hostelName] = calculateHostelMetrics(bookings);
             }
 
-            // Determine week (user selection or auto-detect)
             let weekRange = '';
             if (selectedWeekStart) {
                 const period = calculatePeriod(new Date(selectedWeekStart));
                 weekRange = formatPeriodRange(period.start, period.end);
             } else {
-                // Auto-detect from first file's data
                 const allBookingDates = Object.values(weekReservations)
                     .flatMap(h => h.bookings.map(b => parseExcelDate(b.bookingDate)))
                     .filter(d => d)
@@ -457,15 +410,13 @@ const HostelAnalytics = () => {
             };
 
             setWeeklyData(prev => {
-                // Check if week already exists and merge
                 const existingWeekIndex = prev.findIndex(w => w.week === weekRange);
                 if (existingWeekIndex >= 0) {
                     const updated = [...prev];
                     updated[existingWeekIndex].hostels = { ...updated[existingWeekIndex].hostels, ...weekReservations };
                     return sortWeeklyData(updated);
                 } else {
-                    const updated = [...prev, newWeekData];
-                    return sortWeeklyData(updated);
+                    return sortWeeklyData([...prev, newWeekData]);
                 }
             });
 
@@ -479,55 +430,13 @@ const HostelAnalytics = () => {
         }
     };
 
-    // Handle file drop (including folders)
-    const handleDrop = useCallback(async (e) => {
-        e.preventDefault();
-        const items = e.dataTransfer.items;
-        const files = [];
-
-        // Process drag & drop items (supports folders)
-        if (items) {
-            const promises = [];
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                if (item.kind === 'file') {
-                    const entry = item.webkitGetAsEntry();
-                    if (entry) {
-                        promises.push(processEntry(entry));
-                    }
-                }
-            }
-
-            const allFiles = await Promise.all(promises);
-            const flatFiles = allFiles.flat().filter(file =>
-                file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
-            );
-
-            if (flatFiles.length > 0) {
-                processFiles(flatFiles);
-            } else {
-                alert('No Excel files found in the dropped items');
-            }
-        } else {
-            // Fallback for simple file drag & drop
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                processFiles(files);
-            }
-        }
-    }, []);
-
-    // Process file system entries (folders and files)
+    // Process entry (for folder drag & drop)
     const processEntry = async (entry) => {
         if (entry.isFile) {
-            return new Promise((resolve) => {
-                entry.file(resolve);
-            });
+            return new Promise((resolve) => entry.file(resolve));
         } else if (entry.isDirectory) {
             const reader = entry.createReader();
-            const entries = await new Promise((resolve) => {
-                reader.readEntries(resolve);
-            });
+            const entries = await new Promise((resolve) => reader.readEntries(resolve));
 
             const files = [];
             for (const childEntry of entries) {
@@ -543,59 +452,96 @@ const HostelAnalytics = () => {
         return [];
     };
 
-    const handleDragOver = useCallback((e) => {
+    // Handle drop
+    const handleDrop = useCallback(async (e) => {
         e.preventDefault();
+        const items = e.dataTransfer.items;
+
+        if (items) {
+            const promises = [];
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (item.kind === 'file') {
+                    const entry = item.webkitGetAsEntry();
+                    if (entry) promises.push(processEntry(entry));
+                }
+            }
+
+            const allFiles = await Promise.all(promises);
+            const flatFiles = allFiles.flat().filter(file =>
+                file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+            );
+
+            if (flatFiles.length > 0) {
+                processFiles(flatFiles);
+            } else {
+                alert('No Excel files found in the dropped items');
+            }
+        } else {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) processFiles(files);
+        }
     }, []);
 
-    // Handle file/folder input
+    const handleDragOver = useCallback((e) => e.preventDefault(), []);
+
+    // Handle file input
     const handleFileInput = (e) => {
         const files = e.target.files;
-        if (files.length > 0) {
-            processFiles(files);
-        }
+        if (files.length > 0) processFiles(files);
     };
 
-    // Calculate progressive week-over-week changes
-    const calculateProgressiveChanges = (currentWeekIndex, hostel) => {
-        if (currentWeekIndex === 0) return { change: 0, percentage: 0, isNew: true };
+    // Calculate progressive metric changes (DRY)
+    const calculateProgressiveMetricChanges = (weekIndex, hostel, metricKey) => {
+        if (weekIndex === 0) return { change: 0, percentage: 0, isNew: true };
 
-        const currentData = weeklyData[currentWeekIndex];
-        const previousData = weeklyData[currentWeekIndex - 1];
+        const currentValue = weeklyData[weekIndex].hostels[hostel]?.[metricKey] || 0;
+        const previousValue = weeklyData[weekIndex - 1].hostels[hostel]?.[metricKey] || 0;
 
-        const currentCount = currentData.hostels[hostel]?.count || 0;
-        const previousCount = previousData.hostels[hostel]?.count || 0;
-
-        const change = currentCount - previousCount;
-        const percentage = previousCount === 0 ? (currentCount > 0 ? 100 : 0) : Math.round((change / previousCount) * 100);
-
-        return { change, percentage, isNew: false };
+        return calculateMetricChange(currentValue, previousValue);
     };
 
-    // Get AI analysis
+    // Render metric change (DRY component)
+    const MetricChange = ({ changes, isCurrency = false }) => {
+        if (changes.isNew) return <div className="text-sm text-blue-600">First Week</div>;
+        if (changes.change === 0) return <div className="text-sm text-gray-500">No change</div>;
+
+        const colorClass = changes.change > 0 ? 'text-green-600' : 'text-red-600';
+        const Icon = changes.change > 0 ? TrendingUp : TrendingDown;
+        const prefix = changes.change > 0 ? '+' : '';
+        const value = isCurrency ? formatCurrency(Math.abs(changes.change)) : Math.abs(changes.change);
+
+        return (
+            <div className={`text-sm flex items-center justify-center gap-1 ${colorClass}`}>
+                <Icon className="w-3 h-3" />
+                <span className="text-xs">{prefix}{value} ({prefix}{changes.percentage}%)</span>
+            </div>
+        );
+    };
+
+    // AI Analysis
     const getAIAnalysis = async () => {
         if (weeklyData.length === 0) return;
 
         setIsAnalyzing(true);
 
         try {
-            const prompt = `Analyze this hostel reservation data and provide insights on performance trends and reasons for changes:
+            const prompt = `Analyze this hostel reservation data:
 
 ${JSON.stringify(weeklyData, null, 2)}
 
-Please provide:
+Provide:
 1. Key performance insights
 2. Trends by hostel
-3. Possible reasons for week-over-week changes
-4. Recommendations for improvement
-5. Notable patterns in booking behavior and ADR
+3. Reasons for week-over-week changes
+4. Recommendations
+5. Patterns in bookings, revenue, and ADR
 
-Format your response in a clear, actionable report.`;
+Format as a clear, actionable report.`;
 
             const response = await fetch("https://api.anthropic.com/v1/messages", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     model: "claude-sonnet-4-20250514",
                     max_tokens: 1000,
@@ -604,18 +550,17 @@ Format your response in a clear, actionable report.`;
             });
 
             const data = await response.json();
-            const analysis = data.content[0].text;
-            setAnalysisReport(analysis);
+            setAnalysisReport(data.content[0].text);
 
         } catch (error) {
             console.error('Error getting AI analysis:', error);
-            setAnalysisReport('Sorry, there was an error generating the analysis. Please try again.');
+            setAnalysisReport('Sorry, there was an error. Please try again.');
         } finally {
             setIsAnalyzing(false);
         }
     };
 
-    // Get all unique hostels
+    // Get hostels
     const getAllHostels = () => {
         const hostelSet = new Set();
         weeklyData.forEach(week => {
@@ -666,7 +611,7 @@ Format your response in a clear, actionable report.`;
                     </div>
                 )}
 
-                {/* Input Method Toggle */}
+                {/* Input Section */}
                 <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
                     <div className="flex flex-col sm:flex-row gap-4 mb-6">
                         <button
@@ -709,7 +654,7 @@ Format your response in a clear, actionable report.`;
                         )}
                     </div>
 
-                    {/* File Upload Section */}
+                    {/* File Upload */}
                     {inputMethod === 'file' && (
                         <div>
                             <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -734,7 +679,7 @@ Format your response in a clear, actionable report.`;
                                         </p>
                                         <div className="bg-blue-100 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4">
                                             <p>✅ Single files: Flamingo.xlsx, Puerto.xlsx, etc.</p>
-                                            <p>✅ Folders: Upload entire week folder with all Excel files</p>
+                                            <p>✅ Folders: Drag & drop entire week folder with all Excel files</p>
                                         </div>
                                     </div>
                                     <div className="flex gap-4">
@@ -774,7 +719,7 @@ Format your response in a clear, actionable report.`;
                         </div>
                     )}
 
-                    {/* Copy-Paste Section */}
+                    {/* Copy-Paste */}
                     {inputMethod === 'paste' && (
                         <div>
                             <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -806,7 +751,7 @@ Format your response in a clear, actionable report.`;
                                     <textarea
                                         value={pasteData}
                                         onChange={(e) => setPasteData(e.target.value)}
-                                        placeholder="Paste your CloudBeds reservation table here (either HTML or tab-separated text)..."
+                                        placeholder="Paste your CloudBeds reservation table here..."
                                         className="w-full h-40 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                                     />
                                 </div>
@@ -830,7 +775,7 @@ Format your response in a clear, actionable report.`;
                     )}
                 </div>
 
-                {/* Current Week Summary - Responsive Grid */}
+                {/* Latest Week Cards */}
                 {weeklyData.length > 0 && (
                     <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 mb-8">
                         <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -851,9 +796,19 @@ Format your response in a clear, actionable report.`;
                                         </div>
                                     )}
 
-                                    <div className="space-y-1 text-xs text-gray-500">
-                                        <div>ADR: €{data.adr?.toFixed(2) || '0.00'}</div>
-                                        <div>Lead time: {data.avgLeadTime || 0} days</div>
+                                    <div className="space-y-1 text-xs text-gray-500 border-t border-green-200 pt-2">
+                                        <div className="flex justify-between">
+                                            <span>Revenue:</span>
+                                            <span className="font-semibold text-green-700">{formatCurrency(data.revenue)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>ADR:</span>
+                                            <span className="font-semibold">{formatCurrency(data.adr)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Lead time:</span>
+                                            <span className="font-semibold">{data.avgLeadTime || 0} days</span>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -889,11 +844,11 @@ Format your response in a clear, actionable report.`;
                             </div>
                         </div>
 
-                        {/* Charts Section */}
+                        {/* Charts */}
                         {showCharts && chartData.length > 0 && (
                             <div className="mb-8 p-6 bg-gray-50 rounded-xl">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                                    <h3 className="text-lg font-semibold text-gray-800">Reservation Trends (Chronological)</h3>
+                                    <h3 className="text-lg font-semibold text-gray-800">Reservation Trends</h3>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => setChartType('line')}
@@ -958,7 +913,7 @@ Format your response in a clear, actionable report.`;
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b-2 border-gray-200">
-                                        <th className="text-left py-4 px-2 sm:px-4 font-bold text-gray-800">Hostel</th>
+                                        <th className="text-left py-4 px-2 sm:px-4 font-bold text-gray-800">Hostel / Metric</th>
                                         {weeklyData.map(week => (
                                             <th key={week.week} className="text-center py-4 px-2 sm:px-4 font-bold text-gray-800 min-w-32">
                                                 <div className="text-sm">{week.week}</div>
@@ -968,98 +923,100 @@ Format your response in a clear, actionable report.`;
                                 </thead>
                                 <tbody>
                                     {allHostels.map(hostel => (
-                                        <tr key={hostel} className="border-b border-gray-100 hover:bg-gray-50">
-                                            <td className="py-4 px-2 sm:px-4 font-semibold text-gray-700">
-                                                {hostel}
-                                            </td>
-                                            {weeklyData.map((week, weekIndex) => {
-                                                const hostelData = week.hostels[hostel];
-                                                const currentCount = hostelData?.count || 0;
-                                                const cancelledCount = hostelData?.cancelled || 0;
+                                        <React.Fragment key={hostel}>
+                                            {/* Bookings */}
+                                            <tr className="border-b border-gray-100 hover:bg-gray-50">
+                                                <td className="py-4 px-2 sm:px-4 font-semibold text-gray-700">{hostel}</td>
+                                                {weeklyData.map((week, weekIndex) => {
+                                                    const data = week.hostels[hostel];
+                                                    const count = data?.count || 0;
+                                                    const cancelled = data?.cancelled || 0;
+                                                    const changes = calculateProgressiveMetricChanges(weekIndex, hostel, 'count');
 
-                                                const changes = calculateProgressiveChanges(weekIndex, hostel);
+                                                    return (
+                                                        <td key={week.week} className="py-4 px-2 sm:px-4 text-center">
+                                                            <div className="text-xl font-bold text-gray-800">{count}</div>
+                                                            {cancelled > 0 && <div className="text-xs text-red-600">({cancelled} cancelled)</div>}
+                                                            <MetricChange changes={changes} />
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
 
-                                                return (
-                                                    <td key={week.week} className="py-4 px-2 sm:px-4 text-center">
-                                                        <div className="text-xl font-bold text-gray-800">
-                                                            {currentCount}
-                                                        </div>
-                                                        {cancelledCount > 0 && (
-                                                            <div className="text-xs text-red-600">
-                                                                ({cancelledCount} cancelled)
-                                                            </div>
-                                                        )}
-                                                        {!changes.isNew && (
-                                                            <div className={`text-sm flex items-center justify-center gap-1 ${changes.change > 0 ? 'text-green-600' :
-                                                                changes.change < 0 ? 'text-red-600' : 'text-gray-500'
-                                                                }`}>
-                                                                {changes.change > 0 ? (
-                                                                    <TrendingUp className="w-3 h-3" />
-                                                                ) : changes.change < 0 ? (
-                                                                    <TrendingDown className="w-3 h-3" />
-                                                                ) : null}
-                                                                {changes.change !== 0 && (
-                                                                    <span className="text-xs">
-                                                                        {changes.change > 0 ? '+' : ''}{changes.change} ({changes.percentage}%)
-                                                                    </span>
-                                                                )}
-                                                                {changes.change === 0 && <span className="text-xs">No change</span>}
-                                                            </div>
-                                                        )}
-                                                        {changes.isNew && (
-                                                            <div className="text-sm text-blue-600">First Week</div>
-                                                        )}
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
+                                            {/* Revenue */}
+                                            <tr className="border-b border-gray-50 hover:bg-gray-50 bg-green-50">
+                                                <td className="py-2 px-2 sm:px-4 pl-8 text-sm text-gray-600 flex items-center gap-1">
+                                                    <DollarSign className="w-3 h-3" />
+                                                    Revenue
+                                                </td>
+                                                {weeklyData.map((week, weekIndex) => {
+                                                    const revenue = week.hostels[hostel]?.revenue || 0;
+                                                    const changes = calculateProgressiveMetricChanges(weekIndex, hostel, 'revenue');
+
+                                                    return (
+                                                        <td key={week.week} className="py-2 px-2 sm:px-4 text-center">
+                                                            <div className="text-lg font-semibold text-green-700">{formatCurrency(revenue)}</div>
+                                                            <MetricChange changes={changes} isCurrency={true} />
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+
+                                            {/* ADR */}
+                                            <tr className="border-b border-gray-200 hover:bg-gray-50 bg-blue-50">
+                                                <td className="py-2 px-2 sm:px-4 pl-8 text-sm text-gray-600">ADR</td>
+                                                {weeklyData.map((week) => {
+                                                    const adr = week.hostels[hostel]?.adr || 0;
+
+                                                    return (
+                                                        <td key={week.week} className="py-2 px-2 sm:px-4 text-center">
+                                                            <div className="text-md font-medium text-blue-700">{formatCurrency(adr)}</div>
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        </React.Fragment>
                                     ))}
 
-                                    {/* Totals Row */}
-                                    <tr className="border-t-2 border-gray-300 bg-gray-50 font-bold">
-                                        <td className="py-4 px-2 sm:px-4 font-bold text-gray-800">
-                                            TOTAL
-                                        </td>
+                                    {/* Totals */}
+                                    <tr className="border-t-2 border-gray-300 bg-gray-100 font-bold">
+                                        <td className="py-4 px-2 sm:px-4 font-bold text-gray-800">TOTAL BOOKINGS</td>
                                         {weeklyData.map((week, weekIndex) => {
-                                            const totalReservations = Object.values(week.hostels).reduce((sum, h) => sum + h.count, 0);
-                                            const totalCancelled = Object.values(week.hostels).reduce((sum, h) => sum + (h.cancelled || 0), 0);
+                                            const total = Object.values(week.hostels).reduce((sum, h) => sum + h.count, 0);
+                                            const cancelled = Object.values(week.hostels).reduce((sum, h) => sum + (h.cancelled || 0), 0);
 
-                                            // Calculate progressive total changes
-                                            const previousTotal = weekIndex > 0
+                                            const prevTotal = weekIndex > 0
                                                 ? Object.values(weeklyData[weekIndex - 1].hostels).reduce((sum, h) => sum + h.count, 0)
                                                 : 0;
-                                            const totalChange = weekIndex > 0 ? totalReservations - previousTotal : 0;
-                                            const totalPercentage = weekIndex > 0 && previousTotal > 0
-                                                ? Math.round((totalChange / previousTotal) * 100)
-                                                : 0;
+                                            const changes = calculateMetricChange(total, prevTotal);
 
                                             return (
                                                 <td key={week.week} className="py-4 px-2 sm:px-4 text-center">
-                                                    <div className="text-xl font-bold text-gray-800">
-                                                        {totalReservations}
-                                                    </div>
-                                                    {totalCancelled > 0 && (
-                                                        <div className="text-xs text-red-600">
-                                                            ({totalCancelled} cancelled)
-                                                        </div>
-                                                    )}
-                                                    {weekIndex > 0 && (
-                                                        <div className={`text-sm flex items-center justify-center gap-1 ${totalChange > 0 ? 'text-green-600' :
-                                                            totalChange < 0 ? 'text-red-600' : 'text-gray-500'
-                                                            }`}>
-                                                            {totalChange > 0 ? (
-                                                                <TrendingUp className="w-3 h-3" />
-                                                            ) : totalChange < 0 ? (
-                                                                <TrendingDown className="w-3 h-3" />
-                                                            ) : null}
-                                                            {totalChange !== 0 && (
-                                                                <span className="text-xs">
-                                                                    {totalChange > 0 ? '+' : ''}{totalChange} ({totalPercentage}%)
-                                                                </span>
-                                                            )}
-                                                            {totalChange === 0 && <span className="text-xs">No change</span>}
-                                                        </div>
-                                                    )}
+                                                    <div className="text-xl font-bold text-gray-800">{total}</div>
+                                                    {cancelled > 0 && <div className="text-xs text-red-600">({cancelled} cancelled)</div>}
+                                                    {weekIndex > 0 && <MetricChange changes={changes} />}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+
+                                    <tr className="bg-green-100 font-bold">
+                                        <td className="py-4 px-2 sm:px-4 font-bold text-gray-800 flex items-center gap-1">
+                                            <DollarSign className="w-4 h-4" />
+                                            TOTAL REVENUE
+                                        </td>
+                                        {weeklyData.map((week, weekIndex) => {
+                                            const total = Object.values(week.hostels).reduce((sum, h) => sum + (h.revenue || 0), 0);
+
+                                            const prevTotal = weekIndex > 0
+                                                ? Object.values(weeklyData[weekIndex - 1].hostels).reduce((sum, h) => sum + (h.revenue || 0), 0)
+                                                : 0;
+                                            const changes = calculateMetricChange(total, prevTotal);
+
+                                            return (
+                                                <td key={week.week} className="py-4 px-2 sm:px-4 text-center">
+                                                    <div className="text-xl font-bold text-green-700">{formatCurrency(total)}</div>
+                                                    {weekIndex > 0 && <MetricChange changes={changes} isCurrency={true} />}
                                                 </td>
                                             );
                                         })}
@@ -1070,7 +1027,7 @@ Format your response in a clear, actionable report.`;
                     </div>
                 )}
 
-                {/* AI Analysis Report */}
+                {/* AI Analysis */}
                 {analysisReport && (
                     <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
                         <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -1091,7 +1048,7 @@ Format your response in a clear, actionable report.`;
                     <div className="text-center py-12">
                         <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                         <h3 className="text-xl font-semibold text-gray-600 mb-2">No data yet</h3>
-                        <p className="text-gray-500">Upload files/folders or paste data to start analyzing your hostel performance</p>
+                        <p className="text-gray-500">Upload files/folders or paste data to start analyzing</p>
                     </div>
                 )}
             </div>
