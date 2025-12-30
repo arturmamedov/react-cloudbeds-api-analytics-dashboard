@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, TrendingUp, TrendingDown, Calendar, BarChart3, Brain, FileText, Copy, ChevronDown, ChevronUp, LineChart, FolderOpen, AlertTriangle, DollarSign } from 'lucide-react';
+import { Upload, Calendar, BarChart3, Brain, FileText, Copy, ChevronDown, ChevronUp, LineChart, FolderOpen, AlertTriangle, DollarSign } from 'lucide-react';
 import { LineChart as RechartsLineChart, BarChart as RechartsBarChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
 import { hostelConfig } from '../config/hostelConfig';
@@ -7,6 +7,7 @@ import { dateConfig, calculatePeriod, formatPeriodRange, parseExcelDate, calcula
 import { formatCurrency, parsePrice } from '../utils/formatters';
 import { calculateMetricChange, calculateHostelMetrics, calculateProgressiveMetricChanges } from '../utils/metricsCalculator';
 import { detectHostelFromData, parsePastedData, sortWeeklyData } from '../utils/dataParser';
+import MetricChange from './Dashboard/MetricChange';
 
 const HostelAnalytics = () => {
     const [weeklyData, setWeeklyData] = useState([]);
@@ -281,24 +282,6 @@ const HostelAnalytics = () => {
         if (files.length > 0) {
             processFiles(files);
         }
-    };
-
-    // Render metric change (DRY component)
-    const MetricChange = ({ changes, isCurrency = false }) => {
-        if (changes.isNew) return <div className="text-sm text-blue-600">First Week</div>;
-        if (changes.change === 0) return <div className="text-sm text-gray-500">No change</div>;
-
-        const colorClass = changes.change > 0 ? 'text-green-600' : 'text-red-600';
-        const Icon = changes.change > 0 ? TrendingUp : TrendingDown;
-        const prefix = changes.change > 0 ? '+' : '';
-        const value = isCurrency ? formatCurrency(Math.abs(changes.change)) : Math.abs(changes.change);
-
-        return (
-            <div className={`text-sm flex items-center justify-center gap-1 ${colorClass}`}>
-                <Icon className="w-3 h-3" />
-                <span className="text-xs">{prefix}{value} ({prefix}{changes.percentage}%)</span>
-            </div>
-        );
     };
 
     // Get AI analysis
