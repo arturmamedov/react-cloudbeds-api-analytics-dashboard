@@ -1,10 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+
+// Utility imports
 import { calculatePeriod, formatPeriodRange, parseExcelDate, calculateLeadTime, detectWeekFromBookings, validateWeekMatch } from '../utils/dateUtils';
 import { parsePrice } from '../utils/formatters';
 import { calculateHostelMetrics } from '../utils/metricsCalculator';
 import { detectHostelFromData, parsePastedData, sortWeeklyData } from '../utils/dataParser';
+
+// Component imports
 import WarningBanner from './DataInput/WarningBanner';
 import DataInputPanel from './DataInput/DataInputPanel';
 import LatestWeekSummary from './Dashboard/LatestWeekSummary';
@@ -12,6 +16,7 @@ import PerformanceTable from './Dashboard/PerformanceTable';
 import AIAnalysisPanel from './Analysis/AIAnalysisPanel';
 
 const HostelAnalytics = () => {
+    // State management
     const [weeklyData, setWeeklyData] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
