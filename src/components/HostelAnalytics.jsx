@@ -3,12 +3,13 @@ import { Upload, Calendar, BarChart3, Brain, FileText, Copy, ChevronDown, Chevro
 import { LineChart as RechartsLineChart, BarChart as RechartsBarChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
 import { hostelConfig } from '../config/hostelConfig';
-import { dateConfig, calculatePeriod, formatPeriodRange, parseExcelDate, calculateLeadTime, detectWeekFromBookings, validateWeekMatch } from '../utils/dateUtils';
+import { calculatePeriod, formatPeriodRange, parseExcelDate, calculateLeadTime, detectWeekFromBookings, validateWeekMatch } from '../utils/dateUtils';
 import { formatCurrency, parsePrice } from '../utils/formatters';
 import { calculateMetricChange, calculateHostelMetrics, calculateProgressiveMetricChanges } from '../utils/metricsCalculator';
 import { detectHostelFromData, parsePastedData, sortWeeklyData } from '../utils/dataParser';
 import MetricChange from './Dashboard/MetricChange';
 import WarningBanner from './DataInput/WarningBanner';
+import WeekSelector from './DataInput/WeekSelector';
 
 const HostelAnalytics = () => {
     const [weeklyData, setWeeklyData] = useState([]);
@@ -396,22 +397,10 @@ Format your response in a clear, actionable report.`;
                     </div>
 
                     {/* Week Selection */}
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Select Week (optional - will auto-detect if not specified)
-                        </label>
-                        <input
-                            type="date"
-                            value={selectedWeekStart}
-                            onChange={(e) => setSelectedWeekStart(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        {selectedWeekStart && (
-                            <p className="text-sm text-gray-600 mt-2">
-                                Week: {formatPeriodRange(...Object.values(calculatePeriod(new Date(selectedWeekStart))))}
-                            </p>
-                        )}
-                    </div>
+                    <WeekSelector
+                        selectedWeekStart={selectedWeekStart}
+                        setSelectedWeekStart={setSelectedWeekStart}
+                    />
 
                     {/* File Upload Section */}
                     {inputMethod === 'file' && (
