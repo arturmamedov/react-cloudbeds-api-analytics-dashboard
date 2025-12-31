@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Table, Brain } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Utility imports
@@ -22,6 +22,7 @@ import DataInputPanel from './DataInput/DataInputPanel';
 import LatestWeekSummary from './Dashboard/LatestWeekSummary';
 import PerformanceTable from './Dashboard/PerformanceTable';
 import AIAnalysisPanel from './Analysis/AIAnalysisPanel';
+import ExcelStyleView from './Dashboard/ExcelStyleView';
 
 const HostelAnalytics = () => {
     // State management
@@ -36,6 +37,7 @@ const HostelAnalytics = () => {
     const [inputMethod, setInputMethod] = useState('file');
     const [selectedWeekStart, setSelectedWeekStart] = useState('');
     const [warnings, setWarnings] = useState([]);
+    const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard' or 'excel'
 
     // Process pasted data
     const processPastedData = () => {
