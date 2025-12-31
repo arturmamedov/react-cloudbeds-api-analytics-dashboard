@@ -383,6 +383,34 @@ Format your response in a clear, actionable report.`;
                     <p className="text-gray-600 text-lg">Track weekly direct bookings and analyze performance trends</p>
                 </div>
 
+                {/* View Mode Toggle - Only show when data is loaded */}
+                {weeklyData.length > 0 && (
+                    <div className="flex justify-center gap-4 mb-6">
+                        <button
+                            onClick={() => setViewMode('dashboard')}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${
+                                viewMode === 'dashboard'
+                                    ? 'bg-nests-teal text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                        >
+                            <BarChart3 className="w-5 h-5" />
+                            Dashboard View
+                        </button>
+                        <button
+                            onClick={() => setViewMode('excel')}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${
+                                viewMode === 'excel'
+                                    ? 'bg-nests-teal text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                        >
+                            <Table className="w-5 h-5" />
+                            Excel View
+                        </button>
+                    </div>
+                )}
+
                 {/* Warnings */}
                 <WarningBanner warnings={warnings} />
 
