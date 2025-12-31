@@ -431,25 +431,50 @@ Format your response in a clear, actionable report.`;
                     isUploading={isUploading}
                 />
 
-                {/* Current Week Summary - Responsive Grid */}
-                <LatestWeekSummary weeklyData={weeklyData} />
+                {/* Conditional View Rendering - Dashboard or Excel */}
+                {viewMode === 'dashboard' ? (
+                    <>
+                        {/* Current Week Summary - Responsive Grid */}
+                        <LatestWeekSummary weeklyData={weeklyData} />
 
-                {/* Weekly Comparison Table */}
-                <PerformanceTable
-                    weeklyData={weeklyData}
-                    allHostels={allHostels}
-                    showCharts={showCharts}
-                    setShowCharts={setShowCharts}
-                    chartData={chartData}
-                    colors={colors}
-                    chartType={chartType}
-                    setChartType={setChartType}
-                    getAIAnalysis={getAIAnalysis}
-                    isAnalyzing={isAnalyzing}
-                />
+                        {/* Weekly Comparison Table */}
+                        <PerformanceTable
+                            weeklyData={weeklyData}
+                            allHostels={allHostels}
+                            showCharts={showCharts}
+                            setShowCharts={setShowCharts}
+                            chartData={chartData}
+                            colors={colors}
+                            chartType={chartType}
+                            setChartType={setChartType}
+                            getAIAnalysis={getAIAnalysis}
+                            isAnalyzing={isAnalyzing}
+                        />
 
-                {/* AI Analysis */}
-                <AIAnalysisPanel analysisReport={analysisReport} />
+                        {/* AI Analysis */}
+                        <AIAnalysisPanel analysisReport={analysisReport} />
+                    </>
+                ) : (
+                    <>
+                        {/* Excel-Style View */}
+                        <ExcelStyleView weeklyData={weeklyData} />
+
+                        {/* AI Analysis Button for Excel view */}
+                        <div className="flex justify-center mb-6">
+                            <button
+                                onClick={getAIAnalysis}
+                                disabled={isAnalyzing}
+                                className="bg-nests-dark-teal text-white px-6 py-3 rounded-lg font-semibold font-heading hover:bg-nests-teal transition-colors flex items-center gap-2 disabled:opacity-50"
+                            >
+                                <Brain className="w-5 h-5" />
+                                {isAnalyzing ? 'Analyzing...' : 'Generate AI Analysis'}
+                            </button>
+                        </div>
+
+                        {/* AI Analysis Panel */}
+                        <AIAnalysisPanel analysisReport={analysisReport} />
+                    </>
+                )}
 
                 {weeklyData.length === 0 && (
                     <div className="text-center py-12">
