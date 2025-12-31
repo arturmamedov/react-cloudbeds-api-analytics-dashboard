@@ -173,13 +173,13 @@ const NestedHostelTable = ({ hostels, totals }) => {
                         <tr key={name} className="hover:bg-gray-50 transition-colors">
                             <td className="border border-gray-300 px-2 py-1">{name}</td>
                             <td className="border border-gray-300 px-2 py-1 text-center">
-                                {data.count || 0}
+                                {data.count !== undefined ? data.count : 0}
                             </td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
-                                {data.revenue ? formatCurrency(data.revenue) : '-'}
+                                {data.count > 0 && data.revenue ? formatCurrency(data.revenue) : '-'}
                             </td>
                             <td className="border border-gray-300 px-2 py-1 text-center">
-                                {data.nestPass || '-'}
+                                {data.count > 0 && data.nestPass ? data.nestPass : '-'}
                             </td>
                         </tr>
                     ))}
@@ -295,7 +295,7 @@ const ExcelStyleView = ({ weeklyData }) => {
                         {rowData.map((row, index) => (
                             <tr key={index} className="hover:bg-gray-50 transition-colors">
                                 {/* Period - sticky */}
-                                <td className="border border-gray-300 px-4 py-2 font-semibold sticky left-0 bg-white z-10">
+                                <td className="border border-gray-300 px-4 py-2 font-semibold sticky left-0 bg-white z-10 whitespace-pre-line">
                                     {row.period.replace(' - ', '\n')}
                                 </td>
                                 
@@ -356,7 +356,7 @@ export default ExcelStyleView;
 
 **Add imports:**
 ```javascript
-import { BarChart3, Table } from 'lucide-react'; // Add Table icon
+import { BarChart3, Table, Brain } from 'lucide-react'; // Add Table and Brain icons
 import ExcelStyleView from './Dashboard/ExcelStyleView';
 ```
 
