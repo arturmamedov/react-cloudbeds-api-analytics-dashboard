@@ -7,9 +7,25 @@ export default {
     theme: {
         extend: {
             colors: {
-                'hostel-blue': '#3B82F6',
-                'hostel-green': '#10B981',
-                'hostel-purple': '#8B5CF6',
+                // Nests Primary Colors
+                'nests-teal': '#53CED1',        // Main brand color
+                'nests-dark-teal': '#0D6F82',   // Secondary/emphasis
+
+                // Nests Accent Colors
+                'nests-green': '#53D195',       // Success states
+                'nests-red': '#D15653',         // Errors/warnings
+                'nests-yellow': '#E5B853',      // Warnings
+                'nests-orange': '#E37C25',      // Special highlights
+                'nests-lime': '#CED153',        // Additional accent
+            },
+            fontFamily: {
+                'heading': ['Poppins', 'system-ui', 'sans-serif'],
+                'body': ['Montserrat', 'system-ui', 'sans-serif'],
+            },
+            backgroundImage: {
+                'nests-gradient': 'linear-gradient(to right, #53CED1, #0D6F82)',
+                'nests-gradient-reverse': 'linear-gradient(to right, #0D6F82, #53CED1)',
+                'nests-gradient-orange': 'linear-gradient(135deg, #53CED1, #E37C25)',
             },
             animation: {
                 'fade-in': 'fadeIn 0.5s ease-in-out',
