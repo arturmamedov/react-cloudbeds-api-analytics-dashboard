@@ -636,6 +636,8 @@ The codebase includes extension points:
 - `src/components/Dashboard/LatestWeekSummary.jsx` - Latest week grid display
 - `src/components/Dashboard/PerformanceTable.jsx` - Weekly comparison table (largest component, 239 lines)
 - `src/components/Dashboard/MetricChange.jsx` - Trend indicator component (↑↓)
+- `src/components/Dashboard/ExcelStyleView.jsx` - Excel-style row-based table view (NEW)
+- `src/components/Dashboard/NestedHostelTable.jsx` - Nested hostel metrics table for Excel view (NEW)
 
 ### Data Input Components
 - `src/components/DataInput/DataInputPanel.jsx` - Complete data input section (file + paste)
@@ -725,6 +727,26 @@ When unclear about requirements, ask about:
   - Monthly = Nest Pass bookings with nights >= 28
   - Percentage = (nestPass / valid) * 100
 
+### Excel-Style Table View & Nests Brand Redesign
+- **Added**: NEW Excel-style row-based table view (weeks as rows, hostels nested)
+- **Toggle**: Switch between Dashboard and Excel views with button toggle
+- **Layout**: 15 columns total (PERIODO + 6 GA + EUR + TOP TRAFFIC + 4 Funnel + CONVERSIONES + 2 manual)
+- **Nested Table**: NestedHostelTable component displays per-hostel metrics (Count, Revenue, Nest Pass)
+- **Sticky Column**: PERIODO column stays visible during horizontal scroll
+- **Placeholder Columns**: Gray columns marked for future data integration (GA, funnel, manual entries)
+- **Brand Redesign**: Nests brand colors and fonts applied throughout
+  - **Colors**: Teal (#53CED1), Green (#53D195), Yellow (#E5B853), Red (#D15653)
+  - **Fonts**: Poppins (headings), Montserrat (body text)
+  - **Gradients**: Teal gradient backgrounds for headers
+  - **No box-shadows**: Clean, minimal design with borders only
+- **Components Created**:
+  - `ExcelStyleView.jsx` - Main Excel-style table container
+  - `NestedHostelTable.jsx` - Reusable nested table for hostel metrics
+- **Files Modified**:
+  - `tailwind.config.js` - Added Nests brand colors, fonts, and gradients
+  - `src/index.css` - Added Google Fonts import
+  - `HostelAnalytics.jsx` - Added view mode toggle and conditional rendering
+
 ---
 
 ## 🎯 Remember: Core Principles
@@ -755,6 +777,6 @@ When unclear about requirements, ask about:
 - Measure before optimizing
 - Explain your reasoning
 
-**Last Updated**: December 30, 2024
+**Last Updated**: December 31, 2024
 **Maintained By**: Claude AI in collaboration with Artur Mamedov
 **Built For**: Nests Hostels (Spanish hostel chain)
