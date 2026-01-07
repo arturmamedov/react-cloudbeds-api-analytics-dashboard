@@ -159,7 +159,7 @@ const HostelAnalytics = () => {
                     bookingDate: row[32],
                     arrivalDate: row[23],
                     status: row[35],
-                    nights: row[25],
+                    nights: parseInt(row[25]),
                     price: parseFloat(row[27]) || 0,
                     leadTime: (() => {
                         const bookDate = parseExcelDate(row[32]);
@@ -388,22 +388,20 @@ Format your response in a clear, actionable report.`;
                     <div className="flex justify-center gap-4 mb-6">
                         <button
                             onClick={() => setViewMode('dashboard')}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${
-                                viewMode === 'dashboard'
+                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'dashboard'
                                     ? 'bg-nests-teal text-white'
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            }`}
+                                }`}
                         >
                             <BarChart3 className="w-5 h-5" />
                             Dashboard View
                         </button>
                         <button
                             onClick={() => setViewMode('excel')}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${
-                                viewMode === 'excel'
+                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'excel'
                                     ? 'bg-nests-teal text-white'
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            }`}
+                                }`}
                         >
                             <Table className="w-5 h-5" />
                             Excel View
