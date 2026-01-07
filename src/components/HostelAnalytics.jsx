@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Table, Brain } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Utility imports
@@ -22,6 +22,7 @@ import DataInputPanel from './DataInput/DataInputPanel';
 import LatestWeekSummary from './Dashboard/LatestWeekSummary';
 import PerformanceTable from './Dashboard/PerformanceTable';
 import AIAnalysisPanel from './Analysis/AIAnalysisPanel';
+import ExcelStyleView from './Dashboard/ExcelStyleView';
 
 const HostelAnalytics = () => {
     // State management
@@ -36,6 +37,7 @@ const HostelAnalytics = () => {
     const [inputMethod, setInputMethod] = useState('file');
     const [selectedWeekStart, setSelectedWeekStart] = useState('');
     const [warnings, setWarnings] = useState([]);
+    const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard' or 'excel'
 
     // Process pasted data
     const processPastedData = () => {
@@ -381,6 +383,34 @@ Format your response in a clear, actionable report.`;
                     <p className="text-gray-600 text-lg">Track weekly direct bookings and analyze performance trends</p>
                 </div>
 
+                {/* View Mode Toggle - Only show when data is loaded */}
+                {weeklyData.length > 0 && (
+                    <div className="flex justify-center gap-4 mb-6">
+                        <button
+                            onClick={() => setViewMode('dashboard')}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${
+                                viewMode === 'dashboard'
+                                    ? 'bg-nests-teal text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                        >
+                            <BarChart3 className="w-5 h-5" />
+                            Dashboard View
+                        </button>
+                        <button
+                            onClick={() => setViewMode('excel')}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${
+                                viewMode === 'excel'
+                                    ? 'bg-nests-teal text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                        >
+                            <Table className="w-5 h-5" />
+                            Excel View
+                        </button>
+                    </div>
+                )}
+
                 {/* Warnings */}
                 <WarningBanner warnings={warnings} />
 
@@ -401,25 +431,50 @@ Format your response in a clear, actionable report.`;
                     isUploading={isUploading}
                 />
 
-                {/* Current Week Summary - Responsive Grid */}
-                <LatestWeekSummary weeklyData={weeklyData} />
+                {/* Conditional View Rendering - Dashboard or Excel */}
+                {viewMode === 'dashboard' ? (
+                    <>
+                        {/* Current Week Summary - Responsive Grid */}
+                        <LatestWeekSummary weeklyData={weeklyData} />
 
-                {/* Weekly Comparison Table */}
-                <PerformanceTable
-                    weeklyData={weeklyData}
-                    allHostels={allHostels}
-                    showCharts={showCharts}
-                    setShowCharts={setShowCharts}
-                    chartData={chartData}
-                    colors={colors}
-                    chartType={chartType}
-                    setChartType={setChartType}
-                    getAIAnalysis={getAIAnalysis}
-                    isAnalyzing={isAnalyzing}
-                />
+                        {/* Weekly Comparison Table */}
+                        <PerformanceTable
+                            weeklyData={weeklyData}
+                            allHostels={allHostels}
+                            showCharts={showCharts}
+                            setShowCharts={setShowCharts}
+                            chartData={chartData}
+                            colors={colors}
+                            chartType={chartType}
+                            setChartType={setChartType}
+                            getAIAnalysis={getAIAnalysis}
+                            isAnalyzing={isAnalyzing}
+                        />
 
-                {/* AI Analysis */}
-                <AIAnalysisPanel analysisReport={analysisReport} />
+                        {/* AI Analysis */}
+                        <AIAnalysisPanel analysisReport={analysisReport} />
+                    </>
+                ) : (
+                    <>
+                        {/* Excel-Style View */}
+                        <ExcelStyleView weeklyData={weeklyData} />
+
+                        {/* AI Analysis Button for Excel view */}
+                        <div className="flex justify-center mb-6">
+                            <button
+                                onClick={getAIAnalysis}
+                                disabled={isAnalyzing}
+                                className="bg-nests-dark-teal text-white px-6 py-3 rounded-lg font-semibold font-heading hover:bg-nests-teal transition-colors flex items-center gap-2 disabled:opacity-50"
+                            >
+                                <Brain className="w-5 h-5" />
+                                {isAnalyzing ? 'Analyzing...' : 'Generate AI Analysis'}
+                            </button>
+                        </div>
+
+                        {/* AI Analysis Panel */}
+                        <AIAnalysisPanel analysisReport={analysisReport} />
+                    </>
+                )}
 
                 {weeklyData.length === 0 && (
                     <div className="text-center py-12">

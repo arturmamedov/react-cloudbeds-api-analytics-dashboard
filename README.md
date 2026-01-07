@@ -26,6 +26,15 @@ This React-based dashboard transforms your CloudBeds reservation exports into ac
 - **Real-Time Updates**: Instant calculations and trend analysis
 - **Clean Table View**: Hostels as rows, weeks as columns with totals
 
+### 📊 **Excel-Style Table View** ✨ NEW
+- **Row-Based Layout**: Weeks as rows, matching Excel spreadsheet format
+- **View Toggle**: Switch between Dashboard and Excel views instantly
+- **Nested Hostel Metrics**: Per-hostel breakdown (Count, Revenue, Nest Pass) in one column
+- **Sticky Period Column**: Week dates stay visible during horizontal scroll
+- **15 Columns Total**: Current data + placeholder columns for future integrations (GA, funnel metrics)
+- **Nests Brand Design**: Professional teal, green, and yellow color scheme
+- **Future-Ready**: Built for Google Analytics, funnel tracking, and manual entry integration
+
 ### 🤖 **AI-Powered Insights**
 - **Trend Analysis**: Understand why performance changes week to week
 - **Pattern Recognition**: Identify seasonal and booking behavior patterns
