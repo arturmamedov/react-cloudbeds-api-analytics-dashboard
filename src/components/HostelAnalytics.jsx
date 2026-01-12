@@ -136,17 +136,53 @@ const HostelAnalytics = () => {
      * @param {string} params.mode - 'single' or 'all'
      * @param {string} params.hostelName - Hostel name (for single mode)
      * @param {Date} params.weekStart - Week start date
+     * @param {boolean} params.confirmed - PHASE 5: If true, skip duplicate check
      */
-    const handleAPIFetchStart = useCallback(async ({ mode, hostelName, weekStart }) => {
-        console.log('[HostelAnalytics] 🚀 API Fetch Started', { mode, hostelName, weekStart });
+    const handleAPIFetchStart = useCallback(async ({ mode, hostelName, weekStart, confirmed = false }) => {
+        console.log('[HostelAnalytics] 🚀 API Fetch Started', { mode, hostelName, weekStart, confirmed });
+
+        // Convert string date to Date object if needed (weekStart can be string or Date)
+        const weekStartDate = weekStart instanceof Date ? weekStart : new Date(weekStart);
+        console.log('[HostelAnalytics] 📅 Week start date:', weekStartDate);
+
+        // ============================================================
+        // PHASE 5: DUPLICATE DETECTION (Skip if confirmed=true)
+        // ============================================================
+
+        if (!confirmed) {
+            // Calculate week range to check for duplicates
+            const period = calculatePeriod(weekStartDate);
+            const weekRange = formatPeriodRange(period.start, period.end);
+
+            // Check if this week already has data
+            const existingWeek = weeklyData.find(w => w.week === weekRange);
+
+            if (existingWeek) {
+                console.log('[HostelAnalytics] ⚠️  Week already exists in data:', weekRange);
+                console.log('[HostelAnalytics] 📊 Existing hostels:', Object.keys(existingWeek.hostels));
+
+                // Return confirmation request to parent
+                return {
+                    requiresConfirmation: true,
+                    existingWeek: existingWeek,
+                    weekRange: weekRange,
+                    params: { mode, hostelName, weekStart }
+                };
+            }
+
+            console.log('[HostelAnalytics] ✅ No existing data for week:', weekRange);
+        } else {
+            console.log('[HostelAnalytics] ✅ Confirmed by user - proceeding with fetch');
+        }
+
+        // ============================================================
+        // PROCEED WITH FETCH
+        // ============================================================
 
         setIsUploading(true);
         setWarnings([]);
 
         try {
-            // Convert string date to Date object if needed (weekStart can be string or Date)
-            const weekStartDate = weekStart instanceof Date ? weekStart : new Date(weekStart);
-            console.log('[HostelAnalytics] 📅 Week start date:', weekStartDate);
 
             // ============================================================
             // SINGLE HOSTEL MODE
@@ -402,7 +438,7 @@ const HostelAnalytics = () => {
             setIsUploading(false);
             console.log('[HostelAnalytics] 🏁 API Fetch Complete');
         }
-    }, []);
+    }, [weeklyData]);  // PHASE 5: Added weeklyData dependency for duplicate detection
 
     /**
      * Helper: Format Date object to "YYYY-MM-DD" for API

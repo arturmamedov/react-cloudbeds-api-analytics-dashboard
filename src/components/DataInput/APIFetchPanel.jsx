@@ -53,6 +53,10 @@ const APIFetchPanel = ({
   // Selected hostel name (only used in 'single' mode)
   const [selectedHostel, setSelectedHostel] = useState(null);
 
+  // PHASE 5: Warning modal state
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [warningData, setWarningData] = useState(null);  // Stores {existingWeek, weekRange, params}
+
   console.log('[APIFetchPanel] Component rendered', {
     fetchMode,
     selectedHostel,
@@ -86,8 +90,9 @@ const APIFetchPanel = ({
   /**
    * Handle fetch button click
    * Calls parent callback with fetch parameters
+   * PHASE 5: Now handles confirmation flow if data already exists
    */
-  const handleFetch = useCallback(() => {
+  const handleFetch = useCallback(async () => {
     console.log('[APIFetchPanel] 🚀 Fetch button clicked');
     console.log('[APIFetchPanel] Fetch params:', {
       mode: fetchMode,
@@ -96,12 +101,44 @@ const APIFetchPanel = ({
     });
 
     // Call parent callback with fetch parameters
-    onFetchStart({
+    const result = await onFetchStart({
       mode: fetchMode,              // 'all' or 'single'
       hostelName: fetchMode === 'single' ? selectedHostel : null,
       weekStart: selectedWeekStart
     });
+
+    // PHASE 5: Check if confirmation is required
+    if (result && result.requiresConfirmation) {
+      console.log('[APIFetchPanel] ⚠️  Duplicate detected - showing warning modal');
+      setWarningData(result);
+      setShowWarningModal(true);
+    }
   }, [fetchMode, selectedHostel, selectedWeekStart, onFetchStart]);
+
+  /**
+   * PHASE 5: Handle confirmation - proceed with fetch
+   */
+  const handleConfirmFetch = useCallback(async () => {
+    console.log('[APIFetchPanel] ✅ User confirmed - proceeding with fetch');
+    setShowWarningModal(false);
+
+    // Call parent callback again with confirmed=true
+    await onFetchStart({
+      ...warningData.params,
+      confirmed: true  // Skip duplicate check
+    });
+
+    setWarningData(null);
+  }, [warningData, onFetchStart]);
+
+  /**
+   * PHASE 5: Handle cancel - close modal
+   */
+  const handleCancelFetch = useCallback(() => {
+    console.log('[APIFetchPanel] ❌ User cancelled fetch');
+    setShowWarningModal(false);
+    setWarningData(null);
+  }, []);
 
   /**
    * Handle fetch mode toggle
@@ -395,6 +432,74 @@ const APIFetchPanel = ({
             <div className="text-gray-700 font-mono">
               ⚡ {apiFetchProgress.hostels.filter(h => h.status === 'success').length} successful,{' '}
               {apiFetchProgress.hostels.filter(h => h.status === 'error').length} failed
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* PHASE 5: WARNING MODAL FOR DUPLICATE DATA */}
+      {/* ============================================================ */}
+
+      {showWarningModal && warningData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 space-y-4 shadow-xl">
+            {/* Header */}
+            <div className="flex items-center gap-2 text-yellow">
+              <AlertCircle className="w-6 h-6" />
+              <h3 className="text-lg font-semibold">Week Data Already Exists</h3>
+            </div>
+
+            {/* Content */}
+            <div className="text-sm text-gray-700 space-y-2">
+              <p><strong>Week:</strong> {warningData.weekRange}</p>
+              <p><strong>Existing data contains:</strong></p>
+              <ul className="list-disc list-inside pl-4 space-y-1">
+                <li>{Object.keys(warningData.existingWeek.hostels).length} hostel(s) already loaded:
+                  <span className="font-mono text-xs ml-2">
+                    {Object.keys(warningData.existingWeek.hostels).join(', ')}
+                  </span>
+                </li>
+                <li>
+                  {Object.values(warningData.existingWeek.hostels).reduce((sum, h) => sum + h.count, 0)} total bookings
+                </li>
+              </ul>
+
+              <div className="mt-3 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                <p className="text-sm text-gray-700 font-medium mb-1">
+                  ℹ️ Smart Merge
+                </p>
+                <p className="text-xs text-gray-600">
+                  Fetching new data will <strong>update only the hostels you fetch</strong>.
+                  Other hostels in this week will remain unchanged.
+                </p>
+                {warningData.params.mode === 'single' && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    → Will update: <strong>{warningData.params.hostelName}</strong>
+                  </p>
+                )}
+                {warningData.params.mode === 'all' && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    → Will update: <strong>All 11 hostels</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={handleCancelFetch}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmFetch}
+                className="flex-1 px-4 py-2 bg-teal text-white rounded-lg hover:bg-teal-dark transition font-medium"
+              >
+                Continue & Merge
+              </button>
             </div>
           </div>
         </div>
