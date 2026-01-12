@@ -11,6 +11,7 @@ This React-based dashboard transforms your CloudBeds reservation exports into ac
 ### 📊 **Multi-Format Data Input**
 - **Excel File Upload**: Drag & drop CloudBeds .xlsx exports
 - **Copy & Paste**: Lightning-fast data entry from CloudBeds web interface
+- **CloudBeds API**: Direct API integration for real-time data fetching ✨ NEW
 - **Auto-Detection**: Automatically identifies hostels by name or CloudBeds property ID
 - **Multi-Hostel Support**: Handle multiple properties simultaneously
 
@@ -80,6 +81,66 @@ The application will be available at `http://localhost:3000`
 4. **Paste Data**: Paste into the text area (supports HTML or plain text)
 5. **Process**: Click "Process Data" for instant analysis
 
+### Method 3: CloudBeds API (Automated) ✨ NEW
+**Real-time data fetching directly from CloudBeds API**
+
+#### Setup (One-Time)
+1. **Get API Credentials**:
+   - Log in to CloudBeds Dashboard
+   - Go to **Connect** → **API Access**
+   - Create a new API key with **Read** permissions for Reservations
+   - Copy your API key
+
+2. **Configure Environment**:
+   - Create a `.env` file in the project root
+   - Add your credentials:
+   ```bash
+   VITE_CLOUDBEDS_API_KEY=your_api_key_here
+   VITE_CLOUDBEDS_API_BASE_URL=https://api.cloudbeds.com/api/v1.3
+   VITE_CLOUDBEDS_API_TIMEOUT=10000
+   ```
+   - **Restart the dev server** after adding `.env` (required for Vite)
+
+3. **Security**:
+   - `.env` is automatically ignored by git
+   - Never commit API keys to version control
+   - API key is only stored locally
+
+#### Usage
+1. **In Dashboard**: Switch to "CloudBeds API" mode
+2. **Select Week**: Choose the week you want to analyze
+3. **Choose Fetch Mode**:
+   - **All Hostels**: Fetch all 11 properties at once (~25-35 seconds)
+     - Real-time progress display with per-hostel status
+     - Success/failure tracking for each property
+     - Automatic retry delay to avoid rate limiting
+   - **Single Hostel**: Fetch one property quickly (~2-3 seconds)
+     - Select from dropdown
+     - Instant results
+4. **Duplicate Warning**: If week already has data, a modal will warn you:
+   - Shows existing hostels and booking counts
+   - Explains smart merge behavior
+   - Cancel or Continue & Merge
+5. **Smart Merge**: Fetched data updates only the selected hostels, preserving others
+6. **View Results**: Data appears in dashboard instantly
+
+#### Features
+- ✅ **Real-time Progress**: Visual progress bar with timing for multi-hostel fetches
+- ✅ **Error Handling**: Clear error messages with troubleshooting hints
+- ✅ **Smart Merge**: Prevents accidental data overwriting
+- ✅ **Duplicate Detection**: Warns before overwriting existing week data
+- ✅ **Automatic Filtering**: Only fetches direct bookings (Website/Booking Engine source)
+- ✅ **Rate Limiting**: Built-in delays to respect API limits
+
+#### Troubleshooting
+| Issue | Solution |
+|-------|----------|
+| "API key not found" | Check `.env` file exists and restart dev server |
+| "Invalid API key" | Verify key in CloudBeds Connect → API Access |
+| "Request timeout" | Check internet connection, API may be slow |
+| "Network error" | Verify internet connectivity |
+| "Property ID not found" | Check `hostelConfig.js` has correct CloudBeds property IDs |
+
 ### Supported Data Sources
 - **CloudBeds Reservation Reports**: Direct booking data with full reservation details
 - **Required Fields**: Booking date, check-in, check-out, nights, price, status, source
@@ -147,6 +208,7 @@ src/
 │   │   └── MetricChange.jsx
 │   ├── DataInput/               # Data input components
 │   │   ├── DataInputPanel.jsx
+│   │   ├── APIFetchPanel.jsx    # NEW: CloudBeds API UI
 │   │   ├── WeekSelector.jsx
 │   │   └── WarningBanner.jsx
 │   ├── Charts/                  # Chart components
@@ -155,6 +217,7 @@ src/
 │       └── AIAnalysisPanel.jsx
 ├── utils/                       # Utility functions
 │   ├── index.js                 # Centralized exports
+│   ├── cloudbedsApi.js          # NEW: CloudBeds API integration
 │   ├── dateUtils.js             # Date calculations
 │   ├── formatters.js            # Currency formatting
 │   ├── metricsCalculator.js     # Business logic
