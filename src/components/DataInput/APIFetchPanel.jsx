@@ -161,11 +161,11 @@ const APIFetchPanel = ({
         />
         {selectedWeekStart && (
           <p className="text-xs text-gray-500 mt-1">
-            Selected: {selectedWeekStart.toLocaleDateString('en-GB', {
+            Selected: {new Date(selectedWeekStart).toLocaleDateString('en-GB', {
               day: '2-digit',
               month: 'short',
               year: 'numeric'
-            })} - {new Date(selectedWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
+            })} - {new Date(new Date(selectedWeekStart).getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
               day: '2-digit',
               month: 'short',
               year: 'numeric'

@@ -140,6 +140,10 @@ const HostelAnalytics = () => {
         setWarnings([]);
 
         try {
+            // Convert string date to Date object if needed (weekStart can be string or Date)
+            const weekStartDate = weekStart instanceof Date ? weekStart : new Date(weekStart);
+            console.log('[HostelAnalytics] 📅 Week start date:', weekStartDate);
+
             // ============================================================
             // SINGLE HOSTEL MODE
             // ============================================================
@@ -151,7 +155,7 @@ const HostelAnalytics = () => {
                 console.log(`[HostelAnalytics] 🏨 Property ID: ${propertyID}`);
 
                 // Calculate week date range (Mon-Sun)
-                const period = calculatePeriod(weekStart);
+                const period = calculatePeriod(weekStartDate);
                 const weekRange = formatPeriodRange(period.start, period.end);
                 console.log(`[HostelAnalytics] 📅 Week range: ${weekRange}`);
 
@@ -173,7 +177,7 @@ const HostelAnalytics = () => {
                 // Create week data structure
                 const newWeekData = {
                     week: weekRange,
-                    date: weekStart,
+                    date: weekStartDate,
                     hostels: {
                         [hostelName]: metrics
                     }
@@ -210,7 +214,7 @@ const HostelAnalytics = () => {
                 console.log('[HostelAnalytics] 🏨🏨🏨 All hostels mode: Fetching 11 properties!');
 
                 // Calculate week date range
-                const period = calculatePeriod(weekStart);
+                const period = calculatePeriod(weekStartDate);
                 const weekRange = formatPeriodRange(period.start, period.end);
                 console.log(`[HostelAnalytics] 📅 Week range: ${weekRange}`);
 
@@ -296,7 +300,7 @@ const HostelAnalytics = () => {
                             console.log(`[HostelAnalytics] ➕ New week - adding ${successCount} hostels`);
                             return sortWeeklyData([...prev, {
                                 week: weekRange,
-                                date: weekStart,
+                                date: weekStartDate,
                                 hostels: results
                             }]);
                         }
