@@ -43,6 +43,10 @@ const HostelAnalytics = () => {
     const [warnings, setWarnings] = useState([]);
     const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard' or 'excel'
 
+    // API fetch progress tracking (Phase 4: Progress UI Enhancement)
+    // Structure: { mode, current, total, startTime, hostels: [{ name, status, bookingCount, elapsedTime, error }, ...] }
+    const [apiFetchProgress, setApiFetchProgress] = useState(null);
+
     // Process pasted data
     const processPastedData = () => {
         if (!pasteData.trim()) {
@@ -227,6 +231,23 @@ const HostelAnalytics = () => {
                 const hostelList = Object.keys(hostelConfig);
                 console.log(`[HostelAnalytics] 📋 Hostels to fetch: ${hostelList.join(', ')}`);
 
+                // PHASE 4: Initialize progress tracking
+                const progressStartTime = Date.now();
+                setApiFetchProgress({
+                    mode: 'all',
+                    current: 0,
+                    total: hostelList.length,
+                    startTime: progressStartTime,
+                    hostels: hostelList.map(name => ({
+                        name,
+                        status: 'pending',
+                        bookingCount: 0,
+                        elapsedTime: 0,
+                        error: null
+                    }))
+                });
+                console.log(`[HostelAnalytics] 📊 Progress tracking initialized for ${hostelList.length} hostels`);
+
                 const results = {};
                 let successCount = 0;
                 let errorCount = 0;
@@ -240,6 +261,15 @@ const HostelAnalytics = () => {
                     const hostelStartTime = Date.now();
 
                     console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] 🏨 Fetching ${hostelName}...`);
+
+                    // PHASE 4: Update progress - mark hostel as 'loading'
+                    setApiFetchProgress(prev => prev ? {
+                        ...prev,
+                        current: i + 1,
+                        hostels: prev.hostels.map(h =>
+                            h.name === hostelName ? { ...h, status: 'loading' } : h
+                        )
+                    } : null);
 
                     try {
                         // Get property ID
@@ -259,6 +289,16 @@ const HostelAnalytics = () => {
                         results[hostelName] = metrics;
                         successCount++;
 
+                        // PHASE 4: Update progress - mark hostel as 'success'
+                        setApiFetchProgress(prev => prev ? {
+                            ...prev,
+                            hostels: prev.hostels.map(h =>
+                                h.name === hostelName
+                                    ? { ...h, status: 'success', bookingCount: metrics.count, elapsedTime }
+                                    : h
+                            )
+                        } : null);
+
                         // Small delay to avoid potential rate limiting (500ms)
                         if (i < hostelList.length - 1) { // Don't delay after last hostel
                             console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ⏱️  Waiting 500ms before next fetch...`);
@@ -274,6 +314,16 @@ const HostelAnalytics = () => {
                             hostelName,
                             error: error.message
                         });
+
+                        // PHASE 4: Update progress - mark hostel as 'error'
+                        setApiFetchProgress(prev => prev ? {
+                            ...prev,
+                            hostels: prev.hostels.map(h =>
+                                h.name === hostelName
+                                    ? { ...h, status: 'error', error: error.message, elapsedTime }
+                                    : h
+                            )
+                        } : null);
 
                         // CONTINUE to next hostel (don't stop on error!)
                         console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ⏩ Continuing to next hostel...`);
@@ -329,10 +379,21 @@ const HostelAnalytics = () => {
                           `${errorCount} hostel(s) failed:\n${errorList}\n\n` +
                           `Check console for details.`);
                 }
+
+                // PHASE 4: Clear progress after 2 seconds (give user time to see final state)
+                console.log('[HostelAnalytics] 🧹 Scheduling progress clear in 2s...');
+                setTimeout(() => {
+                    setApiFetchProgress(null);
+                    console.log('[HostelAnalytics] ✨ Progress cleared');
+                }, 2000);
             }
 
         } catch (error) {
             console.error('[HostelAnalytics] ❌ API fetch error:', error);
+
+            // PHASE 4: Clear progress on error
+            setApiFetchProgress(null);
+
             alert(`❌ Error fetching from CloudBeds:\n\n${error.message}\n\nPlease check:\n` +
                   `- Your .env file has valid API credentials\n` +
                   `- You restarted the dev server after adding .env\n` +
@@ -664,6 +725,7 @@ Format your response in a clear, actionable report.`;
                     processPastedData={processPastedData}
                     isUploading={isUploading}
                     onAPIFetchStart={handleAPIFetchStart}  {/* NEW: CloudBeds API handler */}
+                    apiFetchProgress={apiFetchProgress}    {/* PHASE 4: Progress tracking */}
                 />
 
                 {/* Conditional View Rendering - Dashboard or Excel */}

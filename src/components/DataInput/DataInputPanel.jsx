@@ -18,7 +18,8 @@ const DataInputPanel = ({
     setPasteData,
     processPastedData,
     isUploading,
-    onAPIFetchStart  // NEW: Callback for API fetch
+    onAPIFetchStart,      // NEW: Callback for API fetch
+    apiFetchProgress      // PHASE 4: Progress tracking state
 }) => {
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
@@ -182,6 +183,7 @@ const DataInputPanel = ({
                     setSelectedWeekStart={setSelectedWeekStart}
                     onFetchStart={onAPIFetchStart}
                     isUploading={isUploading}
+                    apiFetchProgress={apiFetchProgress}  {/* PHASE 4: Progress tracking */}
                 />
             )}
 

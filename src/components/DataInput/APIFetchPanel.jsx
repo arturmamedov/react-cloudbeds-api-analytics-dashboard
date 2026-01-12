@@ -34,12 +34,14 @@ import { hostelConfig } from '../../config/hostelConfig';
  * @param {Function} props.setSelectedWeekStart - Callback to update week
  * @param {Function} props.onFetchStart - Called when fetch begins
  * @param {boolean} props.isUploading - Global loading state from parent
+ * @param {object} props.apiFetchProgress - PHASE 4: Progress tracking state
  */
 const APIFetchPanel = ({
   selectedWeekStart,
   setSelectedWeekStart,
   onFetchStart,
-  isUploading
+  isUploading,
+  apiFetchProgress  // PHASE 4: Real-time progress tracking
 }) => {
   // ============================================================
   // STATE MANAGEMENT
@@ -308,7 +310,7 @@ const APIFetchPanel = ({
       {/* LOADING STATE INFO */}
       {/* ============================================================ */}
 
-      {isUploading && (
+      {isUploading && !apiFetchProgress && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
           <p className="text-sm text-gray-600 text-center">
             {fetchMode === 'all'
@@ -318,6 +320,83 @@ const APIFetchPanel = ({
           <p className="text-xs text-gray-500 text-center mt-1">
             Please wait, this may take a few seconds.
           </p>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* PHASE 4: REAL-TIME PROGRESS DISPLAY */}
+      {/* ============================================================ */}
+
+      {isUploading && apiFetchProgress && (
+        <div className="border-2 border-teal rounded-lg p-4 bg-gray-50 space-y-3">
+          {/* Header */}
+          <div className="text-sm font-mono text-gray-700 font-semibold">
+            🔧 FETCHING DATA FROM CLOUDBEDS API...
+          </div>
+
+          {/* Progress Bar */}
+          <div className="space-y-1">
+            <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-teal to-green h-full transition-all duration-300"
+                style={{ width: `${(apiFetchProgress.current / apiFetchProgress.total) * 100}%` }}
+              />
+            </div>
+            <div className="text-xs text-gray-600 font-mono">
+              {apiFetchProgress.current}/{apiFetchProgress.total} (
+              {Math.round((apiFetchProgress.current / apiFetchProgress.total) * 100)}%)
+              • {Math.floor((Date.now() - apiFetchProgress.startTime) / 1000)}s elapsed
+            </div>
+          </div>
+
+          {/* Hostel Status List */}
+          <div className="max-h-64 overflow-y-auto space-y-1 font-mono text-xs">
+            {apiFetchProgress.hostels.map((hostel) => (
+              <div
+                key={hostel.name}
+                className={`flex items-center justify-between p-2 rounded ${
+                  hostel.status === 'success' ? 'bg-green-50' :
+                  hostel.status === 'error' ? 'bg-red-50' :
+                  hostel.status === 'loading' ? 'bg-blue-50' :
+                  'bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {hostel.status === 'success' && <span className="text-green-600">✓</span>}
+                  {hostel.status === 'error' && <span className="text-red-600">✗</span>}
+                  {hostel.status === 'loading' && <span className="text-blue-600">⏳</span>}
+                  {hostel.status === 'pending' && <span className="text-gray-400">⏸</span>}
+                  <span className="w-28 font-medium">{hostel.name}</span>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs">
+                  {hostel.status === 'success' && (
+                    <>
+                      <span className="text-gray-600">{hostel.bookingCount} bookings</span>
+                      <span className="text-gray-500">{(hostel.elapsedTime / 1000).toFixed(1)}s</span>
+                    </>
+                  )}
+                  {hostel.status === 'error' && (
+                    <span className="text-red-600">{hostel.error}</span>
+                  )}
+                  {hostel.status === 'loading' && (
+                    <span className="text-blue-600 animate-pulse">Fetching...</span>
+                  )}
+                  {hostel.status === 'pending' && (
+                    <span className="text-gray-400">Queued</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Summary */}
+          <div className="flex items-center justify-between text-sm pt-2 border-t">
+            <div className="text-gray-700 font-mono">
+              ⚡ {apiFetchProgress.hostels.filter(h => h.status === 'success').length} successful,{' '}
+              {apiFetchProgress.hostels.filter(h => h.status === 'error').length} failed
+            </div>
+          </div>
         </div>
       )}
     </div>
