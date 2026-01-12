@@ -204,12 +204,127 @@ const HostelAnalytics = () => {
             }
 
             // ============================================================
-            // ALL HOSTELS MODE (Phase 3 - Coming Soon)
+            // ALL HOSTELS MODE (Phase 3 - Multi-Hostel Fetching!)
             // ============================================================
             else if (mode === 'all') {
-                // TODO: Phase 3 - Multi-hostel fetching
-                console.log('[HostelAnalytics] 🚧 All hostels mode - Coming in Phase 3!');
-                alert('Multi-hostel fetching will be available in Phase 3!');
+                console.log('[HostelAnalytics] 🏨🏨🏨 All hostels mode: Fetching 11 properties!');
+
+                // Calculate week date range
+                const period = calculatePeriod(weekStart);
+                const weekRange = formatPeriodRange(period.start, period.end);
+                console.log(`[HostelAnalytics] 📅 Week range: ${weekRange}`);
+
+                // Format dates for API
+                const startDate = formatDateForAPI(period.start);
+                const endDate = formatDateForAPI(period.end);
+                console.log(`[HostelAnalytics] 📆 API dates: ${startDate} to ${endDate}`);
+
+                // Get all hostel names from config
+                const hostelList = Object.keys(hostelConfig);
+                console.log(`[HostelAnalytics] 📋 Hostels to fetch: ${hostelList.join(', ')}`);
+
+                const results = {};
+                let successCount = 0;
+                let errorCount = 0;
+                const errors = [];
+
+                // Loop through all 11 hostels
+                console.log(`[HostelAnalytics] 🔄 Starting sequential fetch for ${hostelList.length} hostels...`);
+
+                for (let i = 0; i < hostelList.length; i++) {
+                    const hostelName = hostelList[i];
+                    const hostelStartTime = Date.now();
+
+                    console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] 🏨 Fetching ${hostelName}...`);
+
+                    try {
+                        // Get property ID
+                        const propertyID = hostelConfig[hostelName].id;
+                        console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] 🆔 Property ID: ${propertyID}`);
+
+                        // Fetch from CloudBeds API
+                        const bookings = await fetchReservationsFromCloudBeds(propertyID, startDate, endDate);
+                        const elapsedTime = Date.now() - hostelStartTime;
+
+                        console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ✅ ${hostelName}: ${bookings.length} bookings (${(elapsedTime / 1000).toFixed(1)}s)`);
+
+                        // Calculate metrics
+                        const metrics = calculateHostelMetrics(bookings);
+
+                        // Store result
+                        results[hostelName] = metrics;
+                        successCount++;
+
+                        // Small delay to avoid potential rate limiting (500ms)
+                        if (i < hostelList.length - 1) { // Don't delay after last hostel
+                            console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ⏱️  Waiting 500ms before next fetch...`);
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+
+                    } catch (error) {
+                        const elapsedTime = Date.now() - hostelStartTime;
+                        console.error(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ❌ ${hostelName} failed:`, error.message, `(${(elapsedTime / 1000).toFixed(1)}s)`);
+
+                        errorCount++;
+                        errors.push({
+                            hostelName,
+                            error: error.message
+                        });
+
+                        // CONTINUE to next hostel (don't stop on error!)
+                        console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ⏩ Continuing to next hostel...`);
+                    }
+                }
+
+                // Update state with all successful results
+                if (successCount > 0) {
+                    console.log(`[HostelAnalytics] 💾 Updating weekly data with ${successCount} hostels...`);
+
+                    setWeeklyData(prev => {
+                        // Check if week already exists and merge data
+                        const existingWeekIndex = prev.findIndex(w => w.week === weekRange);
+                        if (existingWeekIndex >= 0) {
+                            console.log(`[HostelAnalytics] 🔄 Week exists - merging ${successCount} hostels`);
+                            const updated = [...prev];
+                            // Merge new hostel data with existing
+                            updated[existingWeekIndex].hostels = {
+                                ...updated[existingWeekIndex].hostels,
+                                ...results
+                            };
+                            return sortWeeklyData(updated);
+                        } else {
+                            console.log(`[HostelAnalytics] ➕ New week - adding ${successCount} hostels`);
+                            return sortWeeklyData([...prev, {
+                                week: weekRange,
+                                date: weekStart,
+                                hostels: results
+                            }]);
+                        }
+                    });
+
+                    console.log(`[HostelAnalytics] ✨ Data updated successfully!`);
+                }
+
+                // Show summary
+                console.log(`[HostelAnalytics] 📊 Fetch Summary:`, {
+                    total: hostelList.length,
+                    successful: successCount,
+                    failed: errorCount
+                });
+
+                if (errorCount === 0) {
+                    console.log(`[HostelAnalytics] 🎉 All ${hostelList.length} hostels fetched successfully!`);
+                    const totalBookings = Object.values(results).reduce((sum, h) => sum + h.count, 0);
+                    alert(`✅ Success! All ${hostelList.length} hostels fetched!\n\n` +
+                          `Total Bookings: ${totalBookings}\n` +
+                          `Week: ${weekRange}`);
+                } else {
+                    console.warn(`[HostelAnalytics] ⚠️  Completed with ${errorCount} error(s)`);
+                    const errorList = errors.map(e => `- ${e.hostelName}: ${e.error}`).join('\n');
+                    alert(`⚠️  Fetched ${successCount}/${hostelList.length} hostels successfully\n\n` +
+                          `${errorCount} hostel(s) failed:\n${errorList}\n\n` +
+                          `Check console for details.`);
+                }
             }
 
         } catch (error) {
