@@ -13,8 +13,12 @@ import {
     calculateHostelMetrics,
     detectHostelFromData,
     parsePastedData,
-    sortWeeklyData
+    sortWeeklyData,
+    fetchReservationsFromCloudBeds  // NEW: CloudBeds API utility
 } from '../utils';
+
+// Config imports
+import { hostelConfig } from '../config/hostelConfig';
 
 // Component imports
 import WarningBanner from './DataInput/WarningBanner';
@@ -117,6 +121,119 @@ const HostelAnalytics = () => {
         } finally {
             setIsUploading(false);
         }
+    };
+
+    /**
+     * Handle CloudBeds API fetch
+     * Fetches reservation data from CloudBeds API for selected hostel(s) and week.
+     * Supports two modes: 'single' (one hostel) and 'all' (all 11 hostels).
+     *
+     * @param {object} params - Fetch parameters
+     * @param {string} params.mode - 'single' or 'all'
+     * @param {string} params.hostelName - Hostel name (for single mode)
+     * @param {Date} params.weekStart - Week start date
+     */
+    const handleAPIFetchStart = useCallback(async ({ mode, hostelName, weekStart }) => {
+        console.log('[HostelAnalytics] 🚀 API Fetch Started', { mode, hostelName, weekStart });
+
+        setIsUploading(true);
+        setWarnings([]);
+
+        try {
+            // ============================================================
+            // SINGLE HOSTEL MODE
+            // ============================================================
+            if (mode === 'single') {
+                console.log(`[HostelAnalytics] 📱 Single hostel mode: ${hostelName}`);
+
+                // Get property ID from config
+                const propertyID = hostelConfig[hostelName].id;
+                console.log(`[HostelAnalytics] 🏨 Property ID: ${propertyID}`);
+
+                // Calculate week date range (Mon-Sun)
+                const period = calculatePeriod(weekStart);
+                const weekRange = formatPeriodRange(period.start, period.end);
+                console.log(`[HostelAnalytics] 📅 Week range: ${weekRange}`);
+
+                // Format dates for API (YYYY-MM-DD)
+                const startDate = formatDateForAPI(period.start);
+                const endDate = formatDateForAPI(period.end);
+                console.log(`[HostelAnalytics] 📆 API dates: ${startDate} to ${endDate}`);
+
+                // Fetch from CloudBeds API
+                console.log(`[HostelAnalytics] 🌐 Fetching from CloudBeds API...`);
+                const bookings = await fetchReservationsFromCloudBeds(propertyID, startDate, endDate);
+                console.log(`[HostelAnalytics] ✅ Fetched ${bookings.length} direct bookings for ${hostelName}`);
+
+                // Calculate metrics (reuse existing function! DRY principle)
+                console.log(`[HostelAnalytics] 🧮 Calculating metrics...`);
+                const metrics = calculateHostelMetrics(bookings);
+                console.log(`[HostelAnalytics] 📊 Metrics:`, metrics);
+
+                // Create week data structure
+                const newWeekData = {
+                    week: weekRange,
+                    date: weekStart,
+                    hostels: {
+                        [hostelName]: metrics
+                    }
+                };
+
+                // Update state with smart merge
+                console.log(`[HostelAnalytics] 💾 Updating weekly data...`);
+                setWeeklyData(prev => {
+                    // Check if week already exists and merge data
+                    const existingWeekIndex = prev.findIndex(w => w.week === weekRange);
+                    if (existingWeekIndex >= 0) {
+                        console.log(`[HostelAnalytics] 🔄 Week exists - merging ${hostelName} data`);
+                        const updated = [...prev];
+                        updated[existingWeekIndex].hostels[hostelName] = metrics;
+                        return sortWeeklyData(updated);
+                    } else {
+                        console.log(`[HostelAnalytics] ➕ New week - adding data`);
+                        return sortWeeklyData([...prev, newWeekData]);
+                    }
+                });
+
+                console.log(`[HostelAnalytics] ✨ Success! ${hostelName} data updated`);
+                alert(`✅ Successfully fetched ${metrics.count} bookings for ${hostelName}\n\n` +
+                      `Revenue: €${metrics.revenue.toFixed(2)}\n` +
+                      `Valid Bookings: ${metrics.valid}\n` +
+                      `Nest Pass (7+ nights): ${metrics.nestPass}\n` +
+                      `Monthly (28+ nights): ${metrics.monthly}`);
+            }
+
+            // ============================================================
+            // ALL HOSTELS MODE (Phase 3 - Coming Soon)
+            // ============================================================
+            else if (mode === 'all') {
+                // TODO: Phase 3 - Multi-hostel fetching
+                console.log('[HostelAnalytics] 🚧 All hostels mode - Coming in Phase 3!');
+                alert('Multi-hostel fetching will be available in Phase 3!');
+            }
+
+        } catch (error) {
+            console.error('[HostelAnalytics] ❌ API fetch error:', error);
+            alert(`❌ Error fetching from CloudBeds:\n\n${error.message}\n\nPlease check:\n` +
+                  `- Your .env file has valid API credentials\n` +
+                  `- You restarted the dev server after adding .env\n` +
+                  `- Your internet connection is working`);
+        } finally {
+            setIsUploading(false);
+            console.log('[HostelAnalytics] 🏁 API Fetch Complete');
+        }
+    }, []);
+
+    /**
+     * Helper: Format Date object to "YYYY-MM-DD" for API
+     * @param {Date} date - Date object
+     * @returns {string} Formatted date string
+     */
+    const formatDateForAPI = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     };
 
     // Process uploaded files (now supports folders)
@@ -427,6 +544,7 @@ Format your response in a clear, actionable report.`;
                     setPasteData={setPasteData}
                     processPastedData={processPastedData}
                     isUploading={isUploading}
+                    onAPIFetchStart={handleAPIFetchStart}  {/* NEW: CloudBeds API handler */}
                 />
 
                 {/* Conditional View Rendering - Dashboard or Excel */}
