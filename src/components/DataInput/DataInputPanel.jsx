@@ -57,11 +57,13 @@ const DataInputPanel = ({
                 </button>
             </div>
 
-            {/* Week Selection */}
-            <WeekSelector
-                selectedWeekStart={selectedWeekStart}
-                setSelectedWeekStart={setSelectedWeekStart}
-            />
+            {/* Week Selection - Hidden for API mode (has its own selector) */}
+            {inputMethod !== 'api' && (
+                <WeekSelector
+                    selectedWeekStart={selectedWeekStart}
+                    setSelectedWeekStart={setSelectedWeekStart}
+                />
+            )}
 
             {/* File Upload Section */}
             {inputMethod === 'file' && (
