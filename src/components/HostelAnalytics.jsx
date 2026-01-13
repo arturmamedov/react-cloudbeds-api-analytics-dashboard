@@ -1001,6 +1001,12 @@ Format your response in a clear, actionable report.`;
                     isUploading={isUploading}
                     onAPIFetchStart={handleAPIFetchStart}
                     apiFetchProgress={apiFetchProgress}
+                    // Revenue enrichment props
+                    canEnrichRevenue={canEnrichRevenue()}
+                    isEnriching={isEnriching}
+                    enrichmentProgress={enrichmentProgress}
+                    onEnrichStart={enrichWithRevenueDetails}
+                    onEnrichCancel={cancelEnrichment}
                 />
 
                 {/* Conditional View Rendering - Dashboard or Excel */}
