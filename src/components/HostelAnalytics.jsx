@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { BarChart3, Table, Brain } from 'lucide-react';
+import { BarChart3, Table, Brain, Receipt } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Utility imports
@@ -62,6 +62,11 @@ const HostelAnalytics = () => {
     //     { name: 'Flamingo', reservationID: '123', status: 'loading'|'success'|'error', error: null }
     //   ]
     // }
+
+    // Tax breakdown toggle state (Phase 6: Tax Breakdown Display)
+    // When true, shows revenue as "€52.73 + (€6.92 taxes)" format
+    // When false, shows only total revenue "€59.65"
+    const [showTaxBreakdown, setShowTaxBreakdown] = useState(false);
 
     // Process pasted data
     const processPastedData = () => {
@@ -471,6 +476,26 @@ const HostelAnalytics = () => {
             Object.values(week.hostels).some(hostelData =>
                 hostelData.bookings?.some(b =>
                     b.reservation && b.total == null
+                )
+            )
+        );
+    }, [weeklyData]);
+
+    /**
+     * Check if we have enriched revenue data (with tax breakdown)
+     *
+     * Returns true if any booking has netPrice and taxes fields populated,
+     * which means enrichment has been completed for at least some bookings.
+     *
+     * Used to show/hide the "Show Tax Breakdown" toggle.
+     *
+     * @returns {boolean} True if enriched data is available
+     */
+    const hasEnrichedData = useCallback(() => {
+        return weeklyData.some(week =>
+            Object.values(week.hostels).some(hostelData =>
+                hostelData.bookings?.some(b =>
+                    b.netPrice != null && b.taxes != null
                 )
             )
         );
@@ -957,27 +982,44 @@ Format your response in a clear, actionable report.`;
 
                 {/* View Mode Toggle - Only show when data is loaded */}
                 {weeklyData.length > 0 && (
-                    <div className="flex justify-center gap-4 mb-6">
-                        <button
-                            onClick={() => setViewMode('dashboard')}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'dashboard'
-                                ? 'bg-nests-teal text-white'
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                        >
-                            <BarChart3 className="w-5 h-5" />
-                            Dashboard View
-                        </button>
-                        <button
-                            onClick={() => setViewMode('excel')}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'excel'
-                                ? 'bg-nests-teal text-white'
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                        >
-                            <Table className="w-5 h-5" />
-                            Excel View
-                        </button>
+                    <div className="flex flex-col items-center gap-4 mb-6">
+                        {/* View Mode Buttons */}
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setViewMode('dashboard')}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'dashboard'
+                                    ? 'bg-nests-teal text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                            >
+                                <BarChart3 className="w-5 h-5" />
+                                Dashboard View
+                            </button>
+                            <button
+                                onClick={() => setViewMode('excel')}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'excel'
+                                    ? 'bg-nests-teal text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                            >
+                                <Table className="w-5 h-5" />
+                                Excel View
+                            </button>
+                        </div>
+
+                        {/* Tax Breakdown Toggle - Only show when enriched data is available */}
+                        {hasEnrichedData() && (
+                            <button
+                                onClick={() => setShowTaxBreakdown(!showTaxBreakdown)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${showTaxBreakdown
+                                    ? 'bg-nests-green text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                            >
+                                <Receipt className="w-4 h-4" />
+                                {showTaxBreakdown ? 'Hide Tax Breakdown' : 'Show Tax Breakdown'}
+                            </button>
+                        )}
                     </div>
                 )}
 
