@@ -747,6 +747,44 @@ When unclear about requirements, ask about:
   - `src/index.css` - Added Google Fonts import
   - `HostelAnalytics.jsx` - Added view mode toggle and conditional rendering
 
+### Revenue Enrichment & Tax Breakdown
+- **Problem**: CloudBeds `getReservations` (plural) endpoint returns `balance` field showing €0 for paid bookings
+- **Solution**: Manual enrichment via individual `getReservation` (singular) API calls
+- **Added Features**:
+  - **enrichBookingRevenue()** utility in `cloudbedsApi.js` - Fetches detailed revenue from singular endpoint
+  - **Enrichment State Management** in `HostelAnalytics.jsx` - Tracks progress, handles cancellation
+  - **Enrich Revenue Button** in `APIFetchPanel.jsx` - Appears after API fetch, triggers background enrichment
+  - **Real-time Progress Display** - Shows booking-by-booking enrichment progress with cancel option
+  - **Rate Limiting** - 10-second delay between calls (configurable via `VITE_CLOUDBEDS_API_TIMEOUT`)
+  - **Tax Breakdown Toggle** - Shows/hides tax breakdown across all views
+  - **formatRevenue()** utility - Formats revenue with optional tax display: `€52.73 + (€6.92 taxes)`
+  - **Updated Metrics Calculator** - Calculates `netRevenue` and `totalTaxes` from enriched bookings
+- **Data Flow**:
+  1. User fetches bookings via API (fast, but `balance` = €0)
+  2. Bookings stored with `reservation` ID, `total` = null
+  3. User clicks "Enrich Revenue Data"
+  4. Sequential API calls to `getReservation` extract: `total`, `netPrice` (subTotal), `taxes` (taxesFees)
+  5. State updated incrementally as each booking enriches
+  6. Tax breakdown toggle appears when enriched data available
+- **Pattern: Hybrid Fast + Slow Enrichment**:
+  - Fast initial fetch (getReservations plural) for quick display
+  - Optional slow enrichment (getReservation singular) for detailed analysis
+  - User controls when to pay the time cost
+- **Components Updated**:
+  - `HostelCard.jsx` - Uses `formatRevenue` with tax breakdown support
+  - `PerformanceTable.jsx` - Revenue display with tax breakdown
+  - `ExcelStyleView.jsx` - EUR column with tax breakdown
+  - `NestedHostelTable.jsx` - Revenue cells with tax breakdown
+- **Files Created**:
+  - `docs/plans/revenue-enrichment-implementation-plan.md` - 14-step implementation guide
+- **Files Modified**:
+  - `src/utils/cloudbedsApi.js` - Added enrichment API function
+  - `src/utils/formatters.js` - Added `formatRevenue()` utility
+  - `src/utils/metricsCalculator.js` - Added netRevenue and totalTaxes calculation
+  - `src/components/HostelAnalytics.jsx` - Enrichment state, toggle, helper functions
+  - `src/components/DataInput/APIFetchPanel.jsx` - Enrichment button and progress UI
+  - All dashboard view components - Tax breakdown support
+
 ---
 
 ## 🎯 Remember: Core Principles
