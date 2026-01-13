@@ -173,7 +173,7 @@ const [enrichmentCancelled, setEnrichmentCancelled] = useState(false);
  * 4. Show real-time progress
  * 5. Allow cancellation
  *
- * Rate Limiting: 10000ms (10 seconds) between calls (from .env)
+ * Rate Limiting: 100ms between calls (CloudBeds allows 10 requests/second)
  */
 const enrichWithRevenueDetails = useCallback(async () => {
   console.log('[HostelAnalytics] 🔄 Starting revenue enrichment...');
@@ -226,8 +226,8 @@ const enrichWithRevenueDetails = useCallback(async () => {
     }))
   });
 
-  // Get rate limit from .env (default 10 seconds)
-  const rateLimitMs = parseInt(import.meta.env.VITE_CLOUDBEDS_API_TIMEOUT) || 10000;
+  // Get rate limit delay from .env (default 100ms = 10 requests/second)
+  const rateLimitMs = parseInt(import.meta.env.VITE_CLOUDBEDS_API_DELAY_MS) || 100;
 
   // Enrich each booking
   for (let i = 0; i < allBookings.length; i++) {
@@ -425,7 +425,7 @@ const APIFetchPanel = ({
       Click below to fetch complete revenue breakdown (total + taxes).
     </p>
     <p className="text-xs text-gray-600 mb-3">
-      ⚠️ This process is slow: ~10 seconds per booking due to API rate limits.
+      ⚠️ This takes time: ~100ms per booking. 100 bookings = ~10 seconds.
     </p>
     <button
       onClick={onEnrichStart}
@@ -753,7 +753,7 @@ Each commit message: `feat(ui): Add tax breakdown support to [ComponentName]`
 - [ ] Data updates incrementally during enrichment
 - [ ] Tax toggle appears after enrichment completes
 - [ ] Toggle changes all revenue displays across all views
-- [ ] 10-second rate limit respected
+- [ ] 100ms rate limit delay respected (10 requests/second)
 - [ ] Works with mixed data (enriched + non-enriched)
 - [ ] DRY: Progress UI reused from APIFetchPanel
 - [ ] SOLID: Separate concerns (API, state, UI, formatters)
