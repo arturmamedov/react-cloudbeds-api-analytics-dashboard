@@ -48,7 +48,7 @@ const DataInputPanel = ({
                 <button
                     onClick={() => setInputMethod('api')}
                     className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-colors ${inputMethod === 'api'
-                        ? 'bg-teal text-white'
+                        ? 'bg-nests-teal text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
@@ -185,7 +185,7 @@ const DataInputPanel = ({
                     setSelectedWeekStart={setSelectedWeekStart}
                     onFetchStart={onAPIFetchStart}
                     isUploading={isUploading}
-                    apiFetchProgress={apiFetchProgress}  {/* PHASE 4: Progress tracking */}
+                    apiFetchProgress={apiFetchProgress}
                 />
             )}
 

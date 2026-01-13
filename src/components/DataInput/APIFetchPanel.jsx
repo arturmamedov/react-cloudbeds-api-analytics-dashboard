@@ -74,8 +74,8 @@ const APIFetchPanel = ({
 
   // Check if fetch button should be enabled
   const canFetch = selectedWeekStart &&
-                   !isUploading &&
-                   (fetchMode === 'all' || (fetchMode === 'single' && selectedHostel));
+    !isUploading &&
+    (fetchMode === 'all' || (fetchMode === 'single' && selectedHostel));
 
   console.log('[APIFetchPanel] Can fetch?', canFetch, {
     hasWeek: !!selectedWeekStart,
@@ -169,7 +169,7 @@ const APIFetchPanel = ({
   // ============================================================
 
   return (
-    <div className="space-y-4 p-4 border-2 border-teal rounded-lg bg-white">
+    <div className="space-y-4 p-4 border-2 border-nests-teal rounded-lg bg-white">
       {console.log('[APIFetchPanel] Rendering UI...')}
 
       {/* ============================================================ */}
@@ -177,7 +177,7 @@ const APIFetchPanel = ({
       {/* ============================================================ */}
 
       <div className="flex items-center gap-2 mb-2">
-        <Download className="w-5 h-5 text-teal" />
+        <Download className="w-5 h-5 text-nests-teal" />
         <h3 className="text-lg font-semibold text-gray-800">Fetch from CloudBeds API</h3>
       </div>
 
@@ -226,11 +226,10 @@ const APIFetchPanel = ({
           <button
             onClick={() => handleModeChange('all')}
             disabled={isUploading}
-            className={`px-4 py-3 rounded-lg font-medium transition-all ${
-              fetchMode === 'all'
-                ? 'bg-teal text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`px-4 py-3 rounded-lg font-medium transition-all ${fetchMode === 'all'
+              ? 'bg-nests-teal text-white shadow-md'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <div className="text-sm">All Hostels</div>
             <div className="text-xs opacity-75">(11 properties)</div>
@@ -240,11 +239,10 @@ const APIFetchPanel = ({
           <button
             onClick={() => handleModeChange('single')}
             disabled={isUploading}
-            className={`px-4 py-3 rounded-lg font-medium transition-all ${
-              fetchMode === 'single'
-                ? 'bg-teal text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`px-4 py-3 rounded-lg font-medium transition-all ${fetchMode === 'single'
+              ? 'bg-nests-teal text-white shadow-md'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <div className="text-sm">Single Hostel</div>
             <div className="text-xs opacity-75">(choose one)</div>
@@ -266,7 +264,7 @@ const APIFetchPanel = ({
             value={selectedHostel || ''}
             onChange={handleHostelChange}
             disabled={isUploading}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-nests-teal focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <option value="">Choose a hostel...</option>
             {hostelList.map(name => (
@@ -306,11 +304,10 @@ const APIFetchPanel = ({
       <button
         onClick={handleFetch}
         disabled={!canFetch}
-        className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${
-          canFetch
-            ? 'bg-teal hover:bg-teal-dark text-white shadow-md hover:shadow-lg'
-            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-        }`}
+        className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${canFetch
+          ? 'bg-nests-teal hover:bg-nests-teal-dark text-white shadow-md hover:shadow-lg'
+          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
       >
         {isUploading ? (
           <>
@@ -324,8 +321,8 @@ const APIFetchPanel = ({
               {fetchMode === 'all'
                 ? 'Fetch All Hostels'
                 : selectedHostel
-                ? `Fetch ${selectedHostel}`
-                : 'Select Hostel to Fetch'}
+                  ? `Fetch ${selectedHostel}`
+                  : 'Select Hostel to Fetch'}
             </span>
           </>
         )}
@@ -365,7 +362,7 @@ const APIFetchPanel = ({
       {/* ============================================================ */}
 
       {isUploading && apiFetchProgress && (
-        <div className="border-2 border-teal rounded-lg p-4 bg-gray-50 space-y-3">
+        <div className="border-2 border-nests-teal rounded-lg p-4 bg-gray-50 space-y-3">
           {/* Header */}
           <div className="text-sm font-mono text-gray-700 font-semibold">
             🔧 FETCHING DATA FROM CLOUDBEDS API...
@@ -375,7 +372,7 @@ const APIFetchPanel = ({
           <div className="space-y-1">
             <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-teal to-green h-full transition-all duration-300"
+                className="bg-gradient-to-r from-nests-teal to-green h-full transition-all duration-300"
                 style={{ width: `${(apiFetchProgress.current / apiFetchProgress.total) * 100}%` }}
               />
             </div>
@@ -391,12 +388,11 @@ const APIFetchPanel = ({
             {apiFetchProgress.hostels.map((hostel) => (
               <div
                 key={hostel.name}
-                className={`flex items-center justify-between p-2 rounded ${
-                  hostel.status === 'success' ? 'bg-green-50' :
+                className={`flex items-center justify-between p-2 rounded ${hostel.status === 'success' ? 'bg-green-50' :
                   hostel.status === 'error' ? 'bg-red-50' :
-                  hostel.status === 'loading' ? 'bg-blue-50' :
-                  'bg-gray-50'
-                }`}
+                    hostel.status === 'loading' ? 'bg-blue-50' :
+                      'bg-gray-50'
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   {hostel.status === 'success' && <span className="text-green-600">✓</span>}
@@ -496,7 +492,7 @@ const APIFetchPanel = ({
               </button>
               <button
                 onClick={handleConfirmFetch}
-                className="flex-1 px-4 py-2 bg-teal text-white rounded-lg hover:bg-teal-dark transition font-medium"
+                className="flex-1 px-4 py-2 bg-nests-teal text-white rounded-lg hover:bg-nests-teal-dark transition font-medium"
               >
                 Continue & Merge
               </button>
