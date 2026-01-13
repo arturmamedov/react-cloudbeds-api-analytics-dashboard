@@ -241,10 +241,10 @@ const HostelAnalytics = () => {
 
                 console.log(`[HostelAnalytics] ✨ Success! ${hostelName} data updated`);
                 alert(`✅ Successfully fetched ${metrics.count} bookings for ${hostelName}\n\n` +
-                      `Revenue: €${metrics.revenue.toFixed(2)}\n` +
-                      `Valid Bookings: ${metrics.valid}\n` +
-                      `Nest Pass (7+ nights): ${metrics.nestPass}\n` +
-                      `Monthly (28+ nights): ${metrics.monthly}`);
+                    `Revenue: €${metrics.revenue.toFixed(2)}\n` +
+                    `Valid Bookings: ${metrics.valid}\n` +
+                    `Nest Pass (7+ nights): ${metrics.nestPass}\n` +
+                    `Monthly (28+ nights): ${metrics.monthly}`);
             }
 
             // ============================================================
@@ -406,14 +406,14 @@ const HostelAnalytics = () => {
                     console.log(`[HostelAnalytics] 🎉 All ${hostelList.length} hostels fetched successfully!`);
                     const totalBookings = Object.values(results).reduce((sum, h) => sum + h.count, 0);
                     alert(`✅ Success! All ${hostelList.length} hostels fetched!\n\n` +
-                          `Total Bookings: ${totalBookings}\n` +
-                          `Week: ${weekRange}`);
+                        `Total Bookings: ${totalBookings}\n` +
+                        `Week: ${weekRange}`);
                 } else {
                     console.warn(`[HostelAnalytics] ⚠️  Completed with ${errorCount} error(s)`);
                     const errorList = errors.map(e => `- ${e.hostelName}: ${e.error}`).join('\n');
                     alert(`⚠️  Fetched ${successCount}/${hostelList.length} hostels successfully\n\n` +
-                          `${errorCount} hostel(s) failed:\n${errorList}\n\n` +
-                          `Check console for details.`);
+                        `${errorCount} hostel(s) failed:\n${errorList}\n\n` +
+                        `Check console for details.`);
                 }
 
                 // PHASE 4: Clear progress after 2 seconds (give user time to see final state)
@@ -431,9 +431,9 @@ const HostelAnalytics = () => {
             setApiFetchProgress(null);
 
             alert(`❌ Error fetching from CloudBeds:\n\n${error.message}\n\nPlease check:\n` +
-                  `- Your .env file has valid API credentials\n` +
-                  `- You restarted the dev server after adding .env\n` +
-                  `- Your internet connection is working`);
+                `- Your .env file has valid API credentials\n` +
+                `- You restarted the dev server after adding .env\n` +
+                `- Your internet connection is working`);
         } finally {
             setIsUploading(false);
             console.log('[HostelAnalytics] 🏁 API Fetch Complete');
@@ -722,8 +722,8 @@ Format your response in a clear, actionable report.`;
                         <button
                             onClick={() => setViewMode('dashboard')}
                             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'dashboard'
-                                    ? 'bg-nests-teal text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-nests-teal text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             <BarChart3 className="w-5 h-5" />
@@ -732,8 +732,8 @@ Format your response in a clear, actionable report.`;
                         <button
                             onClick={() => setViewMode('excel')}
                             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'excel'
-                                    ? 'bg-nests-teal text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-nests-teal text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             <Table className="w-5 h-5" />
@@ -760,8 +760,8 @@ Format your response in a clear, actionable report.`;
                     setPasteData={setPasteData}
                     processPastedData={processPastedData}
                     isUploading={isUploading}
-                    onAPIFetchStart={handleAPIFetchStart}  {/* NEW: CloudBeds API handler */}
-                    apiFetchProgress={apiFetchProgress}    {/* PHASE 4: Progress tracking */}
+                    onAPIFetchStart={handleAPIFetchStart}
+                    apiFetchProgress={apiFetchProgress}
                 />
 
                 {/* Conditional View Rendering - Dashboard or Excel */}
