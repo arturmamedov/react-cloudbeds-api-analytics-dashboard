@@ -34,5 +34,6 @@ export {
 
 // CloudBeds API utilities
 export {
-    fetchReservationsFromCloudBeds
+    fetchReservationsFromCloudBeds,
+    enrichBookingRevenue
 } from './cloudbedsApi';

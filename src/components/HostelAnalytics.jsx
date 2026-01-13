@@ -14,7 +14,8 @@ import {
     detectHostelFromData,
     parsePastedData,
     sortWeeklyData,
-    fetchReservationsFromCloudBeds  // NEW: CloudBeds API utility
+    fetchReservationsFromCloudBeds,  // CloudBeds API utility
+    enrichBookingRevenue             // NEW: Revenue enrichment utility
 } from '../utils';
 
 // Config imports
@@ -46,6 +47,21 @@ const HostelAnalytics = () => {
     // API fetch progress tracking (Phase 4: Progress UI Enhancement)
     // Structure: { mode, current, total, startTime, hostels: [{ name, status, bookingCount, elapsedTime, error }, ...] }
     const [apiFetchProgress, setApiFetchProgress] = useState(null);
+
+    // Revenue enrichment state (Phase 6: Revenue Enrichment)
+    const [isEnriching, setIsEnriching] = useState(false);
+    const [enrichmentProgress, setEnrichmentProgress] = useState(null);
+    const [enrichmentCancelled, setEnrichmentCancelled] = useState(false);
+    // Structure of enrichmentProgress:
+    // {
+    //   mode: 'enrichment',
+    //   current: 23,
+    //   total: 100,
+    //   startTime: Date.now(),
+    //   hostels: [
+    //     { name: 'Flamingo', reservationID: '123', status: 'loading'|'success'|'error', error: null }
+    //   ]
+    // }
 
     // Process pasted data
     const processPastedData = () => {
@@ -439,6 +455,229 @@ const HostelAnalytics = () => {
             console.log('[HostelAnalytics] 🏁 API Fetch Complete');
         }
     }, [weeklyData]);  // PHASE 5: Added weeklyData dependency for duplicate detection
+
+    /**
+     * Check if data has bookings that can be enriched
+     *
+     * Returns true if any booking has reservationID but no total field.
+     * This indicates API-fetched data that hasn't been enriched yet.
+     *
+     * Used to show/hide the "Enrich Revenue Data" button.
+     *
+     * @returns {boolean} True if enrichment is available
+     */
+    const canEnrichRevenue = useCallback(() => {
+        return weeklyData.some(week =>
+            Object.values(week.hostels).some(hostelData =>
+                hostelData.bookings?.some(b =>
+                    b.reservation && b.total == null
+                )
+            )
+        );
+    }, [weeklyData]);
+
+    /**
+     * Enrich API-fetched bookings with detailed revenue breakdown
+     *
+     * This function performs background enrichment of booking data by making
+     * individual API calls to getReservation endpoint for each booking.
+     *
+     * **Process:**
+     * 1. Collect all bookings with reservationID (from API fetch)
+     * 2. Initialize progress tracking
+     * 3. Loop through each booking sequentially
+     * 4. Call enrichBookingRevenue() for detailed revenue
+     * 5. Update booking with: { total, netPrice, taxes }
+     * 6. Show real-time progress
+     * 7. Respect 10-second rate limit between calls
+     * 8. Allow user cancellation
+     *
+     * **Rate Limiting:**
+     * - 10 seconds between calls (VITE_CLOUDBEDS_API_TIMEOUT)
+     * - For 100 bookings: ~17 minutes total
+     *
+     * **User Experience:**
+     * - Shows progress: "Enriching 23/100 bookings (4min 20s)"
+     * - Updates data incrementally (see changes in real-time)
+     * - Cancel button available
+     */
+    const enrichWithRevenueDetails = useCallback(async () => {
+        console.log('[HostelAnalytics] 🔄 Starting revenue enrichment...');
+
+        setIsEnriching(true);
+        setEnrichmentCancelled(false);
+
+        // ============================================================
+        // STEP 1: Collect all bookings that need enrichment
+        // ============================================================
+
+        const allBookings = [];
+        weeklyData.forEach(week => {
+            Object.entries(week.hostels).forEach(([hostelName, hostelData]) => {
+                const hostelID = hostelConfig[hostelName]?.id;
+                if (hostelID && hostelData.bookings) {
+                    hostelData.bookings.forEach(booking => {
+                        // Only enrich if has reservationID and not already enriched
+                        if (booking.reservation && booking.total == null) {
+                            allBookings.push({
+                                ...booking,
+                                hostelName,
+                                hostelID,
+                                weekRange: week.week
+                            });
+                        }
+                    });
+                }
+            });
+        });
+
+        const totalBookings = allBookings.length;
+
+        if (totalBookings === 0) {
+            alert('No bookings to enrich.\n\nMake sure you have fetched data from CloudBeds API first.');
+            setIsEnriching(false);
+            return;
+        }
+
+        console.log(`[HostelAnalytics] 📊 Found ${totalBookings} bookings to enrich`);
+
+        // ============================================================
+        // STEP 2: Initialize progress tracking
+        // ============================================================
+
+        setEnrichmentProgress({
+            mode: 'enrichment',
+            current: 0,
+            total: totalBookings,
+            startTime: Date.now(),
+            hostels: allBookings.map(b => ({
+                name: b.hostelName,
+                reservationID: b.reservation,
+                status: 'pending',
+                error: null
+            }))
+        });
+
+        // Get rate limit from .env (default 10 seconds)
+        const rateLimitMs = parseInt(import.meta.env.VITE_CLOUDBEDS_API_TIMEOUT) || 10000;
+        console.log(`[HostelAnalytics] ⏱️  Rate limit: ${rateLimitMs}ms between calls`);
+
+        // ============================================================
+        // STEP 3: Enrich each booking sequentially
+        // ============================================================
+
+        for (let i = 0; i < allBookings.length; i++) {
+            // Check if user cancelled
+            if (enrichmentCancelled) {
+                console.log('[HostelAnalytics] ⏹️  Enrichment cancelled by user');
+                break;
+            }
+
+            const booking = allBookings[i];
+            const bookingStartTime = Date.now();
+
+            // Update progress - mark as loading
+            setEnrichmentProgress(prev => prev ? {
+                ...prev,
+                current: i + 1,
+                hostels: prev.hostels.map((h, idx) =>
+                    idx === i ? { ...h, status: 'loading' } : h
+                )
+            } : null);
+
+            try {
+                console.log(`[HostelAnalytics] [${i + 1}/${totalBookings}] Enriching ${booking.hostelName} - ${booking.reservation}`);
+
+                // Fetch detailed revenue
+                const { total, netPrice, taxes } = await enrichBookingRevenue(booking.hostelID, booking.reservation);
+
+                const elapsed = Date.now() - bookingStartTime;
+                console.log(`[HostelAnalytics] ✅ Success: €${total} (${(elapsed / 1000).toFixed(1)}s)`);
+
+                // Update booking in state
+                setWeeklyData(prev => {
+                    return prev.map(week => {
+                        if (week.week !== booking.weekRange) return week;
+
+                        return {
+                            ...week,
+                            hostels: {
+                                ...week.hostels,
+                                [booking.hostelName]: {
+                                    ...week.hostels[booking.hostelName],
+                                    bookings: week.hostels[booking.hostelName].bookings.map(b => {
+                                        if (b.reservation !== booking.reservation) return b;
+                                        return {
+                                            ...b,
+                                            total: total,
+                                            netPrice: netPrice,
+                                            taxes: taxes
+                                        };
+                                    })
+                                }
+                            }
+                        };
+                    });
+                });
+
+                // Update progress - mark as success
+                setEnrichmentProgress(prev => prev ? {
+                    ...prev,
+                    hostels: prev.hostels.map((h, idx) =>
+                        idx === i ? { ...h, status: 'success' } : h
+                    )
+                } : null);
+
+                // Rate limiting: Wait before next call (except for last booking)
+                if (i < allBookings.length - 1 && !enrichmentCancelled) {
+                    console.log(`[HostelAnalytics] ⏱️  Waiting ${rateLimitMs}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, rateLimitMs));
+                }
+
+            } catch (error) {
+                console.error(`[HostelAnalytics] ❌ Failed to enrich ${booking.reservation}:`, error);
+
+                // Update progress - mark as error
+                setEnrichmentProgress(prev => prev ? {
+                    ...prev,
+                    hostels: prev.hostels.map((h, idx) =>
+                        idx === i ? { ...h, status: 'error', error: error.message } : h
+                    )
+                } : null);
+            }
+        }
+
+        // ============================================================
+        // STEP 4: Complete enrichment
+        // ============================================================
+
+        const successCount = enrichmentProgress?.hostels.filter(h => h.status === 'success').length || 0;
+
+        setIsEnriching(false);
+
+        console.log(`[HostelAnalytics] 🏁 Enrichment complete: ${successCount}/${totalBookings} successful`);
+
+        if (successCount > 0) {
+            alert(`✅ Revenue enrichment complete!\n\n${successCount}/${totalBookings} bookings enriched successfully.`);
+        } else {
+            alert(`❌ Enrichment failed.\n\nNo bookings were enriched successfully. Check console for errors.`);
+        }
+
+        // Clear progress after 3 seconds
+        setTimeout(() => setEnrichmentProgress(null), 3000);
+
+    }, [weeklyData, enrichmentCancelled, enrichmentProgress]);
+
+    /**
+     * Cancel ongoing enrichment process
+     *
+     * Sets cancellation flag which will be checked before next API call.
+     * Current API call will complete, but no new calls will be made.
+     */
+    const cancelEnrichment = useCallback(() => {
+        console.log('[HostelAnalytics] ⏹️  Cancelling enrichment...');
+        setEnrichmentCancelled(true);
+    }, []);
 
     /**
      * Helper: Format Date object to "YYYY-MM-DD" for API
