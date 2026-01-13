@@ -1,6 +1,6 @@
 import React from 'react';
 import { TrendingUp, Brain, LineChart, ChevronUp, ChevronDown, DollarSign } from 'lucide-react';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatRevenue } from '../../utils/formatters';
 import { calculateMetricChange, calculateProgressiveMetricChanges } from '../../utils/metricsCalculator';
 import MetricChange from './MetricChange';
 import ReservationChart from '../Charts/ReservationChart';
@@ -15,7 +15,8 @@ const PerformanceTable = ({
     chartType,
     setChartType,
     getAIAnalysis,
-    isAnalyzing
+    isAnalyzing,
+    showTaxBreakdown = false
 }) => {
     if (!weeklyData || weeklyData.length === 0) return null;
 
@@ -98,12 +99,17 @@ const PerformanceTable = ({
                                         Revenue
                                     </td>
                                     {weeklyData.map((week, weekIndex) => {
-                                        const revenue = week.hostels[hostel]?.revenue || 0;
+                                        const hostelData = week.hostels[hostel];
+                                        const revenue = hostelData?.revenue || 0;
+                                        const netRevenue = hostelData?.netRevenue;
+                                        const totalTaxes = hostelData?.totalTaxes;
                                         const changes = calculateProgressiveMetricChanges(weeklyData, weekIndex, hostel, 'revenue');
 
                                         return (
                                             <td key={week.week} className="py-2 px-2 sm:px-4 text-center">
-                                                <div className="text-lg font-semibold text-green-700">{formatCurrency(revenue)}</div>
+                                                <div className="text-lg font-semibold text-green-700">
+                                                    {formatRevenue(revenue, netRevenue, totalTaxes, showTaxBreakdown)}
+                                                </div>
                                                 <MetricChange changes={changes} isCurrency={true} />
                                             </td>
                                         );
@@ -177,6 +183,8 @@ const PerformanceTable = ({
                             </td>
                             {weeklyData.map((week, weekIndex) => {
                                 const total = Object.values(week.hostels).reduce((sum, h) => sum + (h.revenue || 0), 0);
+                                const totalNet = Object.values(week.hostels).reduce((sum, h) => sum + (h.netRevenue || 0), 0);
+                                const totalTax = Object.values(week.hostels).reduce((sum, h) => sum + (h.totalTaxes || 0), 0);
 
                                 const prevTotal = weekIndex > 0
                                     ? Object.values(weeklyData[weekIndex - 1].hostels).reduce((sum, h) => sum + (h.revenue || 0), 0)
@@ -185,7 +193,9 @@ const PerformanceTable = ({
 
                                 return (
                                     <td key={week.week} className="py-4 px-2 sm:px-4 text-center">
-                                        <div className="text-xl font-bold text-green-700">{formatCurrency(total)}</div>
+                                        <div className="text-xl font-bold text-green-700">
+                                            {formatRevenue(total, totalNet > 0 ? totalNet : null, totalTax > 0 ? totalTax : null, showTaxBreakdown)}
+                                        </div>
                                         {weekIndex > 0 && <MetricChange changes={changes} isCurrency={true} />}
                                     </td>
                                 );

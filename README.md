@@ -12,6 +12,7 @@ This React-based dashboard transforms your CloudBeds reservation exports into ac
 - **Excel File Upload**: Drag & drop CloudBeds .xlsx exports
 - **Copy & Paste**: Lightning-fast data entry from CloudBeds web interface
 - **CloudBeds API**: Direct API integration for real-time data fetching ✨ NEW
+- **Revenue Enrichment**: Get detailed revenue breakdown with tax information ✨ NEW
 - **Auto-Detection**: Automatically identifies hostels by name or CloudBeds property ID
 - **Multi-Hostel Support**: Handle multiple properties simultaneously
 
@@ -131,6 +132,32 @@ The application will be available at `http://localhost:3000`
 - ✅ **Duplicate Detection**: Warns before overwriting existing week data
 - ✅ **Automatic Filtering**: Only fetches direct bookings (Website/Booking Engine source)
 - ✅ **Rate Limiting**: Built-in delays to respect API limits
+
+#### Revenue Enrichment & Tax Breakdown ✨ NEW
+**Get detailed revenue breakdown with tax information**
+
+The CloudBeds `getReservations` (plural) endpoint returns a `balance` field that shows €0 for paid bookings. To get accurate revenue data with tax breakdown, use the **Revenue Enrichment** feature:
+
+**How It Works:**
+1. **Fetch Data First**: Use CloudBeds API to fetch booking data (as described above)
+2. **Enrich Revenue Button**: After fetching, an "Enrich Revenue Data" button appears in the API panel
+3. **Background Processing**: Click to start enrichment
+   - Makes individual API calls to `getReservation` (singular) for each booking
+   - Extracts: `total` (with taxes), `netPrice` (subtotal), `taxes` (tax amount)
+   - 10-second delay between calls to respect CloudBeds rate limits
+   - Real-time progress display with cancel option
+   - Expected time: ~17 minutes for 100 bookings
+4. **Tax Breakdown Toggle**: Once enrichment completes, a "Show Tax Breakdown" toggle appears
+5. **Enhanced Display**: When enabled, revenue shows as: `€52.73 + (€6.92 taxes)` instead of just `€59.65`
+
+**Benefits:**
+- ✅ **Accurate Revenue**: Get actual revenue amounts (not balance)
+- ✅ **Tax Transparency**: See net revenue vs. taxes separately
+- ✅ **All Views Updated**: Tax breakdown works in Dashboard, Excel, and Table views
+- ✅ **Optional Display**: Toggle on/off as needed without re-fetching
+- ✅ **Cancellable**: Stop enrichment anytime if taking too long
+
+**Note:** This is a manual process due to API rate limits. Enrich only when you need detailed tax breakdown analysis.
 
 #### Troubleshooting
 | Issue | Solution |

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { BarChart3, Table, Brain } from 'lucide-react';
+import { BarChart3, Table, Brain, Receipt } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Utility imports
@@ -14,7 +14,8 @@ import {
     detectHostelFromData,
     parsePastedData,
     sortWeeklyData,
-    fetchReservationsFromCloudBeds  // NEW: CloudBeds API utility
+    fetchReservationsFromCloudBeds,  // CloudBeds API utility
+    enrichBookingRevenue             // NEW: Revenue enrichment utility
 } from '../utils';
 
 // Config imports
@@ -46,6 +47,26 @@ const HostelAnalytics = () => {
     // API fetch progress tracking (Phase 4: Progress UI Enhancement)
     // Structure: { mode, current, total, startTime, hostels: [{ name, status, bookingCount, elapsedTime, error }, ...] }
     const [apiFetchProgress, setApiFetchProgress] = useState(null);
+
+    // Revenue enrichment state (Phase 6: Revenue Enrichment)
+    const [isEnriching, setIsEnriching] = useState(false);
+    const [enrichmentProgress, setEnrichmentProgress] = useState(null);
+    const [enrichmentCancelled, setEnrichmentCancelled] = useState(false);
+    // Structure of enrichmentProgress:
+    // {
+    //   mode: 'enrichment',
+    //   current: 23,
+    //   total: 100,
+    //   startTime: Date.now(),
+    //   hostels: [
+    //     { name: 'Flamingo', reservationID: '123', status: 'loading'|'success'|'error', error: null }
+    //   ]
+    // }
+
+    // Tax breakdown toggle state (Phase 6: Tax Breakdown Display)
+    // When true, shows revenue as "€52.73 + (€6.92 taxes)" format
+    // When false, shows only total revenue "€59.65"
+    const [showTaxBreakdown, setShowTaxBreakdown] = useState(false);
 
     // Process pasted data
     const processPastedData = () => {
@@ -441,6 +462,249 @@ const HostelAnalytics = () => {
     }, [weeklyData]);  // PHASE 5: Added weeklyData dependency for duplicate detection
 
     /**
+     * Check if data has bookings that can be enriched
+     *
+     * Returns true if any booking has reservationID but no total field.
+     * This indicates API-fetched data that hasn't been enriched yet.
+     *
+     * Used to show/hide the "Enrich Revenue Data" button.
+     *
+     * @returns {boolean} True if enrichment is available
+     */
+    const canEnrichRevenue = useCallback(() => {
+        return weeklyData.some(week =>
+            Object.values(week.hostels).some(hostelData =>
+                hostelData.bookings?.some(b =>
+                    b.reservation && b.total == null
+                )
+            )
+        );
+    }, [weeklyData]);
+
+    /**
+     * Check if we have enriched revenue data (with tax breakdown)
+     *
+     * Returns true if any booking has netPrice and taxes fields populated,
+     * which means enrichment has been completed for at least some bookings.
+     *
+     * Used to show/hide the "Show Tax Breakdown" toggle.
+     *
+     * @returns {boolean} True if enriched data is available
+     */
+    const hasEnrichedData = useCallback(() => {
+        return weeklyData.some(week =>
+            Object.values(week.hostels).some(hostelData =>
+                hostelData.bookings?.some(b =>
+                    b.netPrice != null && b.taxes != null
+                )
+            )
+        );
+    }, [weeklyData]);
+
+    /**
+     * Enrich API-fetched bookings with detailed revenue breakdown
+     *
+     * This function performs background enrichment of booking data by making
+     * individual API calls to getReservation endpoint for each booking.
+     *
+     * **Process:**
+     * 1. Collect all bookings with reservationID (from API fetch)
+     * 2. Initialize progress tracking
+     * 3. Loop through each booking sequentially
+     * 4. Call enrichBookingRevenue() for detailed revenue
+     * 5. Update booking with: { total, netPrice, taxes }
+     * 6. Show real-time progress
+     * 7. Respect 10-second rate limit between calls
+     * 8. Allow user cancellation
+     *
+     * **Rate Limiting:**
+     * - 10 seconds between calls (VITE_CLOUDBEDS_API_TIMEOUT)
+     * - For 100 bookings: ~17 minutes total
+     *
+     * **User Experience:**
+     * - Shows progress: "Enriching 23/100 bookings (4min 20s)"
+     * - Updates data incrementally (see changes in real-time)
+     * - Cancel button available
+     */
+    const enrichWithRevenueDetails = useCallback(async () => {
+        console.log('[HostelAnalytics] 🔄 Starting revenue enrichment...');
+
+        setIsEnriching(true);
+        setEnrichmentCancelled(false);
+
+        // ============================================================
+        // STEP 1: Collect all bookings that need enrichment
+        // ============================================================
+
+        const allBookings = [];
+        weeklyData.forEach(week => {
+            Object.entries(week.hostels).forEach(([hostelName, hostelData]) => {
+                const hostelID = hostelConfig[hostelName]?.id;
+                if (hostelID && hostelData.bookings) {
+                    hostelData.bookings.forEach(booking => {
+                        // Only enrich if has reservationID and not already enriched
+                        if (booking.reservation && booking.total == null) {
+                            allBookings.push({
+                                ...booking,
+                                hostelName,
+                                hostelID,
+                                weekRange: week.week
+                            });
+                        }
+                    });
+                }
+            });
+        });
+
+        const totalBookings = allBookings.length;
+
+        if (totalBookings === 0) {
+            alert('No bookings to enrich.\n\nMake sure you have fetched data from CloudBeds API first.');
+            setIsEnriching(false);
+            return;
+        }
+
+        console.log(`[HostelAnalytics] 📊 Found ${totalBookings} bookings to enrich`);
+
+        // ============================================================
+        // STEP 2: Initialize progress tracking
+        // ============================================================
+
+        setEnrichmentProgress({
+            mode: 'enrichment',
+            current: 0,
+            total: totalBookings,
+            startTime: Date.now(),
+            hostels: allBookings.map(b => ({
+                name: b.hostelName,
+                reservationID: b.reservation,
+                status: 'pending',
+                error: null
+            }))
+        });
+
+        // Get rate limit from .env (default 10 seconds)
+        const rateLimitMs = parseInt(import.meta.env.VITE_CLOUDBEDS_API_TIMEOUT) || 10000;
+        console.log(`[HostelAnalytics] ⏱️  Rate limit: ${rateLimitMs}ms between calls`);
+
+        // ============================================================
+        // STEP 3: Enrich each booking sequentially
+        // ============================================================
+
+        for (let i = 0; i < allBookings.length; i++) {
+            // Check if user cancelled
+            if (enrichmentCancelled) {
+                console.log('[HostelAnalytics] ⏹️  Enrichment cancelled by user');
+                break;
+            }
+
+            const booking = allBookings[i];
+            const bookingStartTime = Date.now();
+
+            // Update progress - mark as loading
+            setEnrichmentProgress(prev => prev ? {
+                ...prev,
+                current: i + 1,
+                hostels: prev.hostels.map((h, idx) =>
+                    idx === i ? { ...h, status: 'loading' } : h
+                )
+            } : null);
+
+            try {
+                console.log(`[HostelAnalytics] [${i + 1}/${totalBookings}] Enriching ${booking.hostelName} - ${booking.reservation}`);
+
+                // Fetch detailed revenue
+                const { total, netPrice, taxes } = await enrichBookingRevenue(booking.hostelID, booking.reservation);
+
+                const elapsed = Date.now() - bookingStartTime;
+                console.log(`[HostelAnalytics] ✅ Success: €${total} (${(elapsed / 1000).toFixed(1)}s)`);
+
+                // Update booking in state
+                setWeeklyData(prev => {
+                    return prev.map(week => {
+                        if (week.week !== booking.weekRange) return week;
+
+                        return {
+                            ...week,
+                            hostels: {
+                                ...week.hostels,
+                                [booking.hostelName]: {
+                                    ...week.hostels[booking.hostelName],
+                                    bookings: week.hostels[booking.hostelName].bookings.map(b => {
+                                        if (b.reservation !== booking.reservation) return b;
+                                        return {
+                                            ...b,
+                                            total: total,
+                                            netPrice: netPrice,
+                                            taxes: taxes
+                                        };
+                                    })
+                                }
+                            }
+                        };
+                    });
+                });
+
+                // Update progress - mark as success
+                setEnrichmentProgress(prev => prev ? {
+                    ...prev,
+                    hostels: prev.hostels.map((h, idx) =>
+                        idx === i ? { ...h, status: 'success' } : h
+                    )
+                } : null);
+
+                // Rate limiting: Wait before next call (except for last booking)
+                if (i < allBookings.length - 1 && !enrichmentCancelled) {
+                    console.log(`[HostelAnalytics] ⏱️  Waiting ${rateLimitMs}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, rateLimitMs));
+                }
+
+            } catch (error) {
+                console.error(`[HostelAnalytics] ❌ Failed to enrich ${booking.reservation}:`, error);
+
+                // Update progress - mark as error
+                setEnrichmentProgress(prev => prev ? {
+                    ...prev,
+                    hostels: prev.hostels.map((h, idx) =>
+                        idx === i ? { ...h, status: 'error', error: error.message } : h
+                    )
+                } : null);
+            }
+        }
+
+        // ============================================================
+        // STEP 4: Complete enrichment
+        // ============================================================
+
+        const successCount = enrichmentProgress?.hostels.filter(h => h.status === 'success').length || 0;
+
+        setIsEnriching(false);
+
+        console.log(`[HostelAnalytics] 🏁 Enrichment complete: ${successCount}/${totalBookings} successful`);
+
+        if (successCount > 0) {
+            alert(`✅ Revenue enrichment complete!\n\n${successCount}/${totalBookings} bookings enriched successfully.`);
+        } else {
+            alert(`❌ Enrichment failed.\n\nNo bookings were enriched successfully. Check console for errors.`);
+        }
+
+        // Clear progress after 3 seconds
+        setTimeout(() => setEnrichmentProgress(null), 3000);
+
+    }, [weeklyData, enrichmentCancelled, enrichmentProgress]);
+
+    /**
+     * Cancel ongoing enrichment process
+     *
+     * Sets cancellation flag which will be checked before next API call.
+     * Current API call will complete, but no new calls will be made.
+     */
+    const cancelEnrichment = useCallback(() => {
+        console.log('[HostelAnalytics] ⏹️  Cancelling enrichment...');
+        setEnrichmentCancelled(true);
+    }, []);
+
+    /**
      * Helper: Format Date object to "YYYY-MM-DD" for API
      * @param {Date} date - Date object
      * @returns {string} Formatted date string
@@ -718,27 +982,44 @@ Format your response in a clear, actionable report.`;
 
                 {/* View Mode Toggle - Only show when data is loaded */}
                 {weeklyData.length > 0 && (
-                    <div className="flex justify-center gap-4 mb-6">
-                        <button
-                            onClick={() => setViewMode('dashboard')}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'dashboard'
-                                ? 'bg-nests-teal text-white'
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                        >
-                            <BarChart3 className="w-5 h-5" />
-                            Dashboard View
-                        </button>
-                        <button
-                            onClick={() => setViewMode('excel')}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'excel'
-                                ? 'bg-nests-teal text-white'
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                        >
-                            <Table className="w-5 h-5" />
-                            Excel View
-                        </button>
+                    <div className="flex flex-col items-center gap-4 mb-6">
+                        {/* View Mode Buttons */}
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setViewMode('dashboard')}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'dashboard'
+                                    ? 'bg-nests-teal text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                            >
+                                <BarChart3 className="w-5 h-5" />
+                                Dashboard View
+                            </button>
+                            <button
+                                onClick={() => setViewMode('excel')}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'excel'
+                                    ? 'bg-nests-teal text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                            >
+                                <Table className="w-5 h-5" />
+                                Excel View
+                            </button>
+                        </div>
+
+                        {/* Tax Breakdown Toggle - Only show when enriched data is available */}
+                        {hasEnrichedData() && (
+                            <button
+                                onClick={() => setShowTaxBreakdown(!showTaxBreakdown)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${showTaxBreakdown
+                                    ? 'bg-nests-green text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                            >
+                                <Receipt className="w-4 h-4" />
+                                {showTaxBreakdown ? 'Hide Tax Breakdown' : 'Show Tax Breakdown'}
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -762,13 +1043,22 @@ Format your response in a clear, actionable report.`;
                     isUploading={isUploading}
                     onAPIFetchStart={handleAPIFetchStart}
                     apiFetchProgress={apiFetchProgress}
+                    // Revenue enrichment props
+                    canEnrichRevenue={canEnrichRevenue()}
+                    isEnriching={isEnriching}
+                    enrichmentProgress={enrichmentProgress}
+                    onEnrichStart={enrichWithRevenueDetails}
+                    onEnrichCancel={cancelEnrichment}
                 />
 
                 {/* Conditional View Rendering - Dashboard or Excel */}
                 {viewMode === 'dashboard' ? (
                     <>
                         {/* Current Week Summary - Responsive Grid */}
-                        <LatestWeekSummary weeklyData={weeklyData} />
+                        <LatestWeekSummary
+                            weeklyData={weeklyData}
+                            showTaxBreakdown={showTaxBreakdown}
+                        />
 
                         {/* Weekly Comparison Table */}
                         <PerformanceTable
@@ -782,6 +1072,7 @@ Format your response in a clear, actionable report.`;
                             setChartType={setChartType}
                             getAIAnalysis={getAIAnalysis}
                             isAnalyzing={isAnalyzing}
+                            showTaxBreakdown={showTaxBreakdown}
                         />
 
                         {/* AI Analysis */}
@@ -790,7 +1081,10 @@ Format your response in a clear, actionable report.`;
                 ) : (
                     <>
                         {/* Excel-Style View */}
-                        <ExcelStyleView weeklyData={weeklyData} />
+                        <ExcelStyleView
+                            weeklyData={weeklyData}
+                            showTaxBreakdown={showTaxBreakdown}
+                        />
 
                         {/* AI Analysis Button for Excel view */}
                         <div className="flex justify-center mb-6">

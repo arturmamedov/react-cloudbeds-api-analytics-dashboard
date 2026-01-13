@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Table } from 'lucide-react';
 import { hostelConfig } from '../../config/hostelConfig';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatRevenue } from '../../utils/formatters';
 import NestedHostelTable from './NestedHostelTable';
 
 /**
@@ -18,10 +18,12 @@ import NestedHostelTable from './NestedHostelTable';
  * - Nested hostel table showing per-hostel metrics
  * - Horizontal scroll for many columns
  * - Nests brand styling (teal, green, yellow colors)
+ * - Tax breakdown support when enriched data is available
  *
  * @param {Array} weeklyData - Array of week objects containing hostel booking data
+ * @param {boolean} showTaxBreakdown - Whether to show tax breakdown in revenue display
  */
-const ExcelStyleView = ({ weeklyData }) => {
+const ExcelStyleView = ({ weeklyData, showTaxBreakdown = false }) => {
     // Transform weeklyData from column format (weeks as columns) to row format (weeks as rows)
     const rowData = useMemo(() => {
         return weeklyData.map(week => {
@@ -41,6 +43,8 @@ const ExcelStyleView = ({ weeklyData }) => {
             const totals = {
                 count: orderedHostels.reduce((sum, h) => sum + h.data.count, 0),
                 revenue: orderedHostels.reduce((sum, h) => sum + h.data.revenue, 0),
+                netRevenue: orderedHostels.reduce((sum, h) => sum + (h.data.netRevenue || 0), 0),
+                totalTaxes: orderedHostels.reduce((sum, h) => sum + (h.data.totalTaxes || 0), 0),
                 nestPass: orderedHostels.reduce((sum, h) => sum + (h.data.nestPass || 0), 0)
             };
 
@@ -161,7 +165,12 @@ const ExcelStyleView = ({ weeklyData }) => {
 
                                 {/* EUR - Calculated total revenue with green highlight */}
                                 <td className="border border-gray-300 px-4 py-2 text-right font-semibold bg-nests-green/10 text-nests-green">
-                                    {formatCurrency(row.totals.revenue)}
+                                    {formatRevenue(
+                                        row.totals.revenue,
+                                        row.totals.netRevenue > 0 ? row.totals.netRevenue : null,
+                                        row.totals.totalTaxes > 0 ? row.totals.totalTaxes : null,
+                                        showTaxBreakdown
+                                    )}
                                 </td>
 
                                 {/* Placeholder columns - Traffic, Funnel, Manual (empty for now) */}
@@ -176,6 +185,7 @@ const ExcelStyleView = ({ weeklyData }) => {
                                     <NestedHostelTable
                                         hostels={row.hostels}
                                         totals={row.totals}
+                                        showTaxBreakdown={showTaxBreakdown}
                                     />
                                 </td>
 

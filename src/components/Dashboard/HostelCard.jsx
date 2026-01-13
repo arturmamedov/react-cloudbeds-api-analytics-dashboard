@@ -1,7 +1,7 @@
 import React from 'react';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatRevenue } from '../../utils/formatters';
 
-const HostelCard = ({ hostel, data }) => {
+const HostelCard = ({ hostel, data, showTaxBreakdown = false }) => {
     return (
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 sm:p-6 border border-green-200">
             <h3 className="font-bold text-lg text-gray-800 mb-2 truncate">{hostel}</h3>
@@ -25,7 +25,9 @@ const HostelCard = ({ hostel, data }) => {
             <div className="space-y-1 text-xs text-gray-500 border-t border-green-200 pt-2">
                 <div className="flex justify-between">
                     <span>Revenue:</span>
-                    <span className="font-semibold text-green-700">{formatCurrency(data.revenue)}</span>
+                    <span className="font-semibold text-green-700">
+                        {formatRevenue(data.revenue, data.netRevenue, data.totalTaxes, showTaxBreakdown)}
+                    </span>
                 </div>
                 <div className="flex justify-between">
                     <span>ADR:</span>
