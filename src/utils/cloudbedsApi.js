@@ -439,8 +439,9 @@ export const fetchReservationsFromCloudBeds = async (propertyID, startDate, endD
  * - `taxes`: Tax amount (taxesFees from balanceDetailed)
  *
  * **Rate Limiting:**
- * - Respects VITE_CLOUDBEDS_API_TIMEOUT from .env (default 10 seconds)
- * - Caller should add delays between calls (10s recommended)
+ * - CloudBeds allows 10 requests per second
+ * - Caller should add ~100ms delays between calls
+ * - Function uses TIMEOUT for request timeout (default 30 seconds)
  *
  * @param {string} propertyID - CloudBeds property ID (e.g., "6733")
  * @param {string} reservationID - Reservation ID to enrich

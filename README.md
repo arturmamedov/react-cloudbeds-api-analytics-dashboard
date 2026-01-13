@@ -98,7 +98,7 @@ The application will be available at `http://localhost:3000`
    ```bash
    VITE_CLOUDBEDS_API_KEY=your_api_key_here
    VITE_CLOUDBEDS_API_BASE_URL=https://api.cloudbeds.com/api/v1.3
-   VITE_CLOUDBEDS_API_TIMEOUT=10000
+   VITE_CLOUDBEDS_API_DELAY_MS=100
    ```
    - **Restart the dev server** after adding `.env` (required for Vite)
 
@@ -144,9 +144,9 @@ The CloudBeds `getReservations` (plural) endpoint returns a `balance` field that
 3. **Background Processing**: Click to start enrichment
    - Makes individual API calls to `getReservation` (singular) for each booking
    - Extracts: `total` (with taxes), `netPrice` (subtotal), `taxes` (tax amount)
-   - 10-second delay between calls to respect CloudBeds rate limits
+   - 100ms delay between calls (CloudBeds allows 10 requests/second)
    - Real-time progress display with cancel option
-   - Expected time: ~17 minutes for 100 bookings
+   - Expected time: ~10 seconds for 100 bookings
 4. **Tax Breakdown Toggle**: Once enrichment completes, a "Show Tax Breakdown" toggle appears
 5. **Enhanced Display**: When enabled, revenue shows as: `€52.73 + (€6.92 taxes)` instead of just `€59.65`
 

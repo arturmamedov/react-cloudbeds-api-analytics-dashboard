@@ -514,15 +514,16 @@ const HostelAnalytics = () => {
      * 4. Call enrichBookingRevenue() for detailed revenue
      * 5. Update booking with: { total, netPrice, taxes }
      * 6. Show real-time progress
-     * 7. Respect 10-second rate limit between calls
+     * 7. Respect CloudBeds rate limit (10 requests/second)
      * 8. Allow user cancellation
      *
      * **Rate Limiting:**
-     * - 10 seconds between calls (VITE_CLOUDBEDS_API_TIMEOUT)
-     * - For 100 bookings: ~17 minutes total
+     * - CloudBeds allows 10 requests per second
+     * - 100ms delay between calls (VITE_CLOUDBEDS_API_DELAY_MS, default: 100)
+     * - For 100 bookings: ~10 seconds total
      *
      * **User Experience:**
-     * - Shows progress: "Enriching 23/100 bookings (4min 20s)"
+     * - Shows progress: "Enriching 23/100 bookings (2s elapsed)"
      * - Updates data incrementally (see changes in real-time)
      * - Cancel button available
      */
@@ -583,9 +584,9 @@ const HostelAnalytics = () => {
             }))
         });
 
-        // Get rate limit from .env (default 10 seconds)
-        const rateLimitMs = parseInt(import.meta.env.VITE_CLOUDBEDS_API_TIMEOUT) || 10000;
-        console.log(`[HostelAnalytics] ⏱️  Rate limit: ${rateLimitMs}ms between calls`);
+        // Get rate limit delay from .env (default 100ms = 10 requests/second)
+        const rateLimitMs = parseInt(import.meta.env.VITE_CLOUDBEDS_API_DELAY_MS) || 100;
+        console.log(`[HostelAnalytics] ⏱️  Rate limit delay: ${rateLimitMs}ms between calls`);
 
         // ============================================================
         // STEP 3: Enrich each booking sequentially

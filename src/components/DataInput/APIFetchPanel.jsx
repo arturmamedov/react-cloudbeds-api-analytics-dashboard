@@ -568,7 +568,7 @@ const APIFetchPanel = ({
 
           {/* Rate Limit Notice */}
           <div className="text-xs text-gray-500 text-center pt-2 border-t">
-            ⏱️ 10-second delay between calls to respect CloudBeds API rate limits
+            ⏱️ 100ms delay between calls (CloudBeds allows 10 requests/second)
           </div>
         </div>
       )}

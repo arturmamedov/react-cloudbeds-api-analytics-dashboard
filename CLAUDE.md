@@ -755,7 +755,7 @@ When unclear about requirements, ask about:
   - **Enrichment State Management** in `HostelAnalytics.jsx` - Tracks progress, handles cancellation
   - **Enrich Revenue Button** in `APIFetchPanel.jsx` - Appears after API fetch, triggers background enrichment
   - **Real-time Progress Display** - Shows booking-by-booking enrichment progress with cancel option
-  - **Rate Limiting** - 10-second delay between calls (configurable via `VITE_CLOUDBEDS_API_TIMEOUT`)
+  - **Rate Limiting** - 100ms delay between calls (configurable via `VITE_CLOUDBEDS_API_DELAY_MS`), respects CloudBeds 10 requests/second limit
   - **Tax Breakdown Toggle** - Shows/hides tax breakdown across all views
   - **formatRevenue()** utility - Formats revenue with optional tax display: `€52.73 + (€6.92 taxes)`
   - **Updated Metrics Calculator** - Calculates `netRevenue` and `totalTaxes` from enriched bookings
