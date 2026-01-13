@@ -15,7 +15,8 @@ export {
 // Formatter utilities
 export {
     formatCurrency,
-    parsePrice
+    parsePrice,
+    formatRevenue
 } from './formatters';
 
 // Metrics calculation utilities
