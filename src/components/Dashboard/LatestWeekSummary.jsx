@@ -2,7 +2,7 @@ import React from 'react';
 import { Calendar } from 'lucide-react';
 import HostelCard from './HostelCard';
 
-const LatestWeekSummary = ({ weeklyData }) => {
+const LatestWeekSummary = ({ weeklyData, showTaxBreakdown = false }) => {
     if (!weeklyData || weeklyData.length === 0) return null;
 
     const latestWeek = weeklyData[weeklyData.length - 1];
@@ -16,7 +16,12 @@ const LatestWeekSummary = ({ weeklyData }) => {
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {Object.entries(latestWeek?.hostels || {}).map(([hostel, data]) => (
-                    <HostelCard key={hostel} hostel={hostel} data={data} />
+                    <HostelCard
+                        key={hostel}
+                        hostel={hostel}
+                        data={data}
+                        showTaxBreakdown={showTaxBreakdown}
+                    />
                 ))}
             </div>
         </div>

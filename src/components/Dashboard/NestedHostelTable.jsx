@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatRevenue } from '../../utils/formatters';
 
 /**
  * NestedHostelTable Component
@@ -9,8 +9,9 @@ import { formatCurrency } from '../../utils/formatters';
  *
  * @param {Array} hostels - Array of hostel objects with name and data
  * @param {Object} totals - Total counts across all hostels (count, revenue, nestPass)
+ * @param {boolean} showTaxBreakdown - Whether to show tax breakdown in revenue display
  */
-const NestedHostelTable = ({ hostels, totals }) => {
+const NestedHostelTable = ({ hostels, totals, showTaxBreakdown = false }) => {
     return (
         <div className="overflow-hidden">
             <table className="min-w-full text-xs border-collapse font-body">
@@ -40,7 +41,9 @@ const NestedHostelTable = ({ hostels, totals }) => {
                                 {data.count !== undefined ? data.count : 0}
                             </td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
-                                {data.count > 0 && data.revenue ? formatCurrency(data.revenue) : '-'}
+                                {data.count > 0 && data.revenue
+                                    ? formatRevenue(data.revenue, data.netRevenue, data.totalTaxes, showTaxBreakdown)
+                                    : '-'}
                             </td>
                             <td className="border border-gray-300 px-2 py-1 text-center">
                                 {data.count > 0 && data.nestPass ? data.nestPass : '-'}
@@ -57,7 +60,12 @@ const NestedHostelTable = ({ hostels, totals }) => {
                             {totals.count}
                         </td>
                         <td className="border border-gray-300 px-2 py-1 text-right">
-                            {formatCurrency(totals.revenue)}
+                            {formatRevenue(
+                                totals.revenue,
+                                totals.netRevenue > 0 ? totals.netRevenue : null,
+                                totals.totalTaxes > 0 ? totals.totalTaxes : null,
+                                showTaxBreakdown
+                            )}
                         </td>
                         <td className="border border-gray-300 px-2 py-1 text-center">
                             {totals.nestPass}

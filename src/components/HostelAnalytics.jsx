@@ -1055,7 +1055,10 @@ Format your response in a clear, actionable report.`;
                 {viewMode === 'dashboard' ? (
                     <>
                         {/* Current Week Summary - Responsive Grid */}
-                        <LatestWeekSummary weeklyData={weeklyData} />
+                        <LatestWeekSummary
+                            weeklyData={weeklyData}
+                            showTaxBreakdown={showTaxBreakdown}
+                        />
 
                         {/* Weekly Comparison Table */}
                         <PerformanceTable
@@ -1069,6 +1072,7 @@ Format your response in a clear, actionable report.`;
                             setChartType={setChartType}
                             getAIAnalysis={getAIAnalysis}
                             isAnalyzing={isAnalyzing}
+                            showTaxBreakdown={showTaxBreakdown}
                         />
 
                         {/* AI Analysis */}
@@ -1077,7 +1081,10 @@ Format your response in a clear, actionable report.`;
                 ) : (
                     <>
                         {/* Excel-Style View */}
-                        <ExcelStyleView weeklyData={weeklyData} />
+                        <ExcelStyleView
+                            weeklyData={weeklyData}
+                            showTaxBreakdown={showTaxBreakdown}
+                        />
 
                         {/* AI Analysis Button for Excel view */}
                         <div className="flex justify-center mb-6">
