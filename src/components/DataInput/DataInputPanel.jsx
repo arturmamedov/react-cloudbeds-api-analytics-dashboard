@@ -1,7 +1,8 @@
 import React from 'react';
-import { FolderOpen, Copy, FileText } from 'lucide-react';
+import { FolderOpen, Copy, FileText, Download } from 'lucide-react';
 import { hostelConfig } from '../../config/hostelConfig';
 import WeekSelector from './WeekSelector';
+import APIFetchPanel from './APIFetchPanel';
 
 const DataInputPanel = ({
     inputMethod,
@@ -16,7 +17,9 @@ const DataInputPanel = ({
     pasteData,
     setPasteData,
     processPastedData,
-    isUploading
+    isUploading,
+    onAPIFetchStart,      // NEW: Callback for API fetch
+    apiFetchProgress      // PHASE 4: Progress tracking state
 }) => {
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
@@ -41,13 +44,26 @@ const DataInputPanel = ({
                     <Copy className="w-4 h-4 inline mr-2" />
                     Copy & Paste
                 </button>
+                {/* NEW: CloudBeds API Button */}
+                <button
+                    onClick={() => setInputMethod('api')}
+                    className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-colors ${inputMethod === 'api'
+                        ? 'bg-nests-teal text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                >
+                    <Download className="w-4 h-4 inline mr-2" />
+                    CloudBeds API
+                </button>
             </div>
 
-            {/* Week Selection */}
-            <WeekSelector
-                selectedWeekStart={selectedWeekStart}
-                setSelectedWeekStart={setSelectedWeekStart}
-            />
+            {/* Week Selection - Hidden for API mode (has its own selector) */}
+            {inputMethod !== 'api' && (
+                <WeekSelector
+                    selectedWeekStart={selectedWeekStart}
+                    setSelectedWeekStart={setSelectedWeekStart}
+                />
+            )}
 
             {/* File Upload Section */}
             {inputMethod === 'file' && (
@@ -160,6 +176,17 @@ const DataInputPanel = ({
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* NEW: CloudBeds API Section */}
+            {inputMethod === 'api' && (
+                <APIFetchPanel
+                    selectedWeekStart={selectedWeekStart}
+                    setSelectedWeekStart={setSelectedWeekStart}
+                    onFetchStart={onAPIFetchStart}
+                    isUploading={isUploading}
+                    apiFetchProgress={apiFetchProgress}
+                />
             )}
 
             {isUploading && (

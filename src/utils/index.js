@@ -31,3 +31,8 @@ export {
     parsePastedData,
     sortWeeklyData
 } from './dataParser';
+
+// CloudBeds API utilities
+export {
+    fetchReservationsFromCloudBeds
+} from './cloudbedsApi';

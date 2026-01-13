@@ -13,8 +13,12 @@ import {
     calculateHostelMetrics,
     detectHostelFromData,
     parsePastedData,
-    sortWeeklyData
+    sortWeeklyData,
+    fetchReservationsFromCloudBeds  // NEW: CloudBeds API utility
 } from '../utils';
+
+// Config imports
+import { hostelConfig } from '../config/hostelConfig';
 
 // Component imports
 import WarningBanner from './DataInput/WarningBanner';
@@ -38,6 +42,10 @@ const HostelAnalytics = () => {
     const [selectedWeekStart, setSelectedWeekStart] = useState('');
     const [warnings, setWarnings] = useState([]);
     const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard' or 'excel'
+
+    // API fetch progress tracking (Phase 4: Progress UI Enhancement)
+    // Structure: { mode, current, total, startTime, hostels: [{ name, status, bookingCount, elapsedTime, error }, ...] }
+    const [apiFetchProgress, setApiFetchProgress] = useState(null);
 
     // Process pasted data
     const processPastedData = () => {
@@ -117,6 +125,331 @@ const HostelAnalytics = () => {
         } finally {
             setIsUploading(false);
         }
+    };
+
+    /**
+     * Handle CloudBeds API fetch
+     * Fetches reservation data from CloudBeds API for selected hostel(s) and week.
+     * Supports two modes: 'single' (one hostel) and 'all' (all 11 hostels).
+     *
+     * @param {object} params - Fetch parameters
+     * @param {string} params.mode - 'single' or 'all'
+     * @param {string} params.hostelName - Hostel name (for single mode)
+     * @param {Date} params.weekStart - Week start date
+     * @param {boolean} params.confirmed - PHASE 5: If true, skip duplicate check
+     */
+    const handleAPIFetchStart = useCallback(async ({ mode, hostelName, weekStart, confirmed = false }) => {
+        console.log('[HostelAnalytics] 🚀 API Fetch Started', { mode, hostelName, weekStart, confirmed });
+
+        // Convert string date to Date object if needed (weekStart can be string or Date)
+        const weekStartDate = weekStart instanceof Date ? weekStart : new Date(weekStart);
+        console.log('[HostelAnalytics] 📅 Week start date:', weekStartDate);
+
+        // ============================================================
+        // PHASE 5: DUPLICATE DETECTION (Skip if confirmed=true)
+        // ============================================================
+
+        if (!confirmed) {
+            // Calculate week range to check for duplicates
+            const period = calculatePeriod(weekStartDate);
+            const weekRange = formatPeriodRange(period.start, period.end);
+
+            // Check if this week already has data
+            const existingWeek = weeklyData.find(w => w.week === weekRange);
+
+            if (existingWeek) {
+                console.log('[HostelAnalytics] ⚠️  Week already exists in data:', weekRange);
+                console.log('[HostelAnalytics] 📊 Existing hostels:', Object.keys(existingWeek.hostels));
+
+                // Return confirmation request to parent
+                return {
+                    requiresConfirmation: true,
+                    existingWeek: existingWeek,
+                    weekRange: weekRange,
+                    params: { mode, hostelName, weekStart }
+                };
+            }
+
+            console.log('[HostelAnalytics] ✅ No existing data for week:', weekRange);
+        } else {
+            console.log('[HostelAnalytics] ✅ Confirmed by user - proceeding with fetch');
+        }
+
+        // ============================================================
+        // PROCEED WITH FETCH
+        // ============================================================
+
+        setIsUploading(true);
+        setWarnings([]);
+
+        try {
+
+            // ============================================================
+            // SINGLE HOSTEL MODE
+            // ============================================================
+            if (mode === 'single') {
+                console.log(`[HostelAnalytics] 📱 Single hostel mode: ${hostelName}`);
+
+                // Get property ID from config
+                const propertyID = hostelConfig[hostelName].id;
+                console.log(`[HostelAnalytics] 🏨 Property ID: ${propertyID}`);
+
+                // Calculate week date range (Mon-Sun)
+                const period = calculatePeriod(weekStartDate);
+                const weekRange = formatPeriodRange(period.start, period.end);
+                console.log(`[HostelAnalytics] 📅 Week range: ${weekRange}`);
+
+                // Format dates for API (YYYY-MM-DD)
+                const startDate = formatDateForAPI(period.start);
+                const endDate = formatDateForAPI(period.end);
+                console.log(`[HostelAnalytics] 📆 API dates: ${startDate} to ${endDate}`);
+
+                // Fetch from CloudBeds API
+                console.log(`[HostelAnalytics] 🌐 Fetching from CloudBeds API...`);
+                const bookings = await fetchReservationsFromCloudBeds(propertyID, startDate, endDate);
+                console.log(`[HostelAnalytics] ✅ Fetched ${bookings.length} direct bookings for ${hostelName}`);
+
+                // Calculate metrics (reuse existing function! DRY principle)
+                console.log(`[HostelAnalytics] 🧮 Calculating metrics...`);
+                const metrics = calculateHostelMetrics(bookings);
+                console.log(`[HostelAnalytics] 📊 Metrics:`, metrics);
+
+                // Create week data structure
+                const newWeekData = {
+                    week: weekRange,
+                    date: weekStartDate,
+                    hostels: {
+                        [hostelName]: metrics
+                    }
+                };
+
+                // Update state with smart merge
+                console.log(`[HostelAnalytics] 💾 Updating weekly data...`);
+                setWeeklyData(prev => {
+                    // Check if week already exists and merge data
+                    const existingWeekIndex = prev.findIndex(w => w.week === weekRange);
+                    if (existingWeekIndex >= 0) {
+                        console.log(`[HostelAnalytics] 🔄 Week exists - merging ${hostelName} data`);
+                        const updated = [...prev];
+                        updated[existingWeekIndex].hostels[hostelName] = metrics;
+                        return sortWeeklyData(updated);
+                    } else {
+                        console.log(`[HostelAnalytics] ➕ New week - adding data`);
+                        return sortWeeklyData([...prev, newWeekData]);
+                    }
+                });
+
+                console.log(`[HostelAnalytics] ✨ Success! ${hostelName} data updated`);
+                alert(`✅ Successfully fetched ${metrics.count} bookings for ${hostelName}\n\n` +
+                    `Revenue: €${metrics.revenue.toFixed(2)}\n` +
+                    `Valid Bookings: ${metrics.valid}\n` +
+                    `Nest Pass (7+ nights): ${metrics.nestPass}\n` +
+                    `Monthly (28+ nights): ${metrics.monthly}`);
+            }
+
+            // ============================================================
+            // ALL HOSTELS MODE (Phase 3 - Multi-Hostel Fetching!)
+            // ============================================================
+            else if (mode === 'all') {
+                console.log('[HostelAnalytics] 🏨🏨🏨 All hostels mode: Fetching 11 properties!');
+
+                // Calculate week date range
+                const period = calculatePeriod(weekStartDate);
+                const weekRange = formatPeriodRange(period.start, period.end);
+                console.log(`[HostelAnalytics] 📅 Week range: ${weekRange}`);
+
+                // Format dates for API
+                const startDate = formatDateForAPI(period.start);
+                const endDate = formatDateForAPI(period.end);
+                console.log(`[HostelAnalytics] 📆 API dates: ${startDate} to ${endDate}`);
+
+                // Get all hostel names from config
+                const hostelList = Object.keys(hostelConfig);
+                console.log(`[HostelAnalytics] 📋 Hostels to fetch: ${hostelList.join(', ')}`);
+
+                // PHASE 4: Initialize progress tracking
+                const progressStartTime = Date.now();
+                setApiFetchProgress({
+                    mode: 'all',
+                    current: 0,
+                    total: hostelList.length,
+                    startTime: progressStartTime,
+                    hostels: hostelList.map(name => ({
+                        name,
+                        status: 'pending',
+                        bookingCount: 0,
+                        elapsedTime: 0,
+                        error: null
+                    }))
+                });
+                console.log(`[HostelAnalytics] 📊 Progress tracking initialized for ${hostelList.length} hostels`);
+
+                const results = {};
+                let successCount = 0;
+                let errorCount = 0;
+                const errors = [];
+
+                // Loop through all 11 hostels
+                console.log(`[HostelAnalytics] 🔄 Starting sequential fetch for ${hostelList.length} hostels...`);
+
+                for (let i = 0; i < hostelList.length; i++) {
+                    const hostelName = hostelList[i];
+                    const hostelStartTime = Date.now();
+
+                    console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] 🏨 Fetching ${hostelName}...`);
+
+                    // PHASE 4: Update progress - mark hostel as 'loading'
+                    setApiFetchProgress(prev => prev ? {
+                        ...prev,
+                        current: i + 1,
+                        hostels: prev.hostels.map(h =>
+                            h.name === hostelName ? { ...h, status: 'loading' } : h
+                        )
+                    } : null);
+
+                    try {
+                        // Get property ID
+                        const propertyID = hostelConfig[hostelName].id;
+                        console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] 🆔 Property ID: ${propertyID}`);
+
+                        // Fetch from CloudBeds API
+                        const bookings = await fetchReservationsFromCloudBeds(propertyID, startDate, endDate);
+                        const elapsedTime = Date.now() - hostelStartTime;
+
+                        console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ✅ ${hostelName}: ${bookings.length} bookings (${(elapsedTime / 1000).toFixed(1)}s)`);
+
+                        // Calculate metrics
+                        const metrics = calculateHostelMetrics(bookings);
+
+                        // Store result
+                        results[hostelName] = metrics;
+                        successCount++;
+
+                        // PHASE 4: Update progress - mark hostel as 'success'
+                        setApiFetchProgress(prev => prev ? {
+                            ...prev,
+                            hostels: prev.hostels.map(h =>
+                                h.name === hostelName
+                                    ? { ...h, status: 'success', bookingCount: metrics.count, elapsedTime }
+                                    : h
+                            )
+                        } : null);
+
+                        // Small delay to avoid potential rate limiting (500ms)
+                        if (i < hostelList.length - 1) { // Don't delay after last hostel
+                            console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ⏱️  Waiting 500ms before next fetch...`);
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+
+                    } catch (error) {
+                        const elapsedTime = Date.now() - hostelStartTime;
+                        console.error(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ❌ ${hostelName} failed:`, error.message, `(${(elapsedTime / 1000).toFixed(1)}s)`);
+
+                        errorCount++;
+                        errors.push({
+                            hostelName,
+                            error: error.message
+                        });
+
+                        // PHASE 4: Update progress - mark hostel as 'error'
+                        setApiFetchProgress(prev => prev ? {
+                            ...prev,
+                            hostels: prev.hostels.map(h =>
+                                h.name === hostelName
+                                    ? { ...h, status: 'error', error: error.message, elapsedTime }
+                                    : h
+                            )
+                        } : null);
+
+                        // CONTINUE to next hostel (don't stop on error!)
+                        console.log(`[HostelAnalytics] [${i + 1}/${hostelList.length}] ⏩ Continuing to next hostel...`);
+                    }
+                }
+
+                // Update state with all successful results
+                if (successCount > 0) {
+                    console.log(`[HostelAnalytics] 💾 Updating weekly data with ${successCount} hostels...`);
+
+                    setWeeklyData(prev => {
+                        // Check if week already exists and merge data
+                        const existingWeekIndex = prev.findIndex(w => w.week === weekRange);
+                        if (existingWeekIndex >= 0) {
+                            console.log(`[HostelAnalytics] 🔄 Week exists - merging ${successCount} hostels`);
+                            const updated = [...prev];
+                            // Merge new hostel data with existing
+                            updated[existingWeekIndex].hostels = {
+                                ...updated[existingWeekIndex].hostels,
+                                ...results
+                            };
+                            return sortWeeklyData(updated);
+                        } else {
+                            console.log(`[HostelAnalytics] ➕ New week - adding ${successCount} hostels`);
+                            return sortWeeklyData([...prev, {
+                                week: weekRange,
+                                date: weekStartDate,
+                                hostels: results
+                            }]);
+                        }
+                    });
+
+                    console.log(`[HostelAnalytics] ✨ Data updated successfully!`);
+                }
+
+                // Show summary
+                console.log(`[HostelAnalytics] 📊 Fetch Summary:`, {
+                    total: hostelList.length,
+                    successful: successCount,
+                    failed: errorCount
+                });
+
+                if (errorCount === 0) {
+                    console.log(`[HostelAnalytics] 🎉 All ${hostelList.length} hostels fetched successfully!`);
+                    const totalBookings = Object.values(results).reduce((sum, h) => sum + h.count, 0);
+                    alert(`✅ Success! All ${hostelList.length} hostels fetched!\n\n` +
+                        `Total Bookings: ${totalBookings}\n` +
+                        `Week: ${weekRange}`);
+                } else {
+                    console.warn(`[HostelAnalytics] ⚠️  Completed with ${errorCount} error(s)`);
+                    const errorList = errors.map(e => `- ${e.hostelName}: ${e.error}`).join('\n');
+                    alert(`⚠️  Fetched ${successCount}/${hostelList.length} hostels successfully\n\n` +
+                        `${errorCount} hostel(s) failed:\n${errorList}\n\n` +
+                        `Check console for details.`);
+                }
+
+                // PHASE 4: Clear progress after 2 seconds (give user time to see final state)
+                console.log('[HostelAnalytics] 🧹 Scheduling progress clear in 2s...');
+                setTimeout(() => {
+                    setApiFetchProgress(null);
+                    console.log('[HostelAnalytics] ✨ Progress cleared');
+                }, 2000);
+            }
+
+        } catch (error) {
+            console.error('[HostelAnalytics] ❌ API fetch error:', error);
+
+            // PHASE 4: Clear progress on error
+            setApiFetchProgress(null);
+
+            alert(`❌ Error fetching from CloudBeds:\n\n${error.message}\n\nPlease check:\n` +
+                `- Your .env file has valid API credentials\n` +
+                `- You restarted the dev server after adding .env\n` +
+                `- Your internet connection is working`);
+        } finally {
+            setIsUploading(false);
+            console.log('[HostelAnalytics] 🏁 API Fetch Complete');
+        }
+    }, [weeklyData]);  // PHASE 5: Added weeklyData dependency for duplicate detection
+
+    /**
+     * Helper: Format Date object to "YYYY-MM-DD" for API
+     * @param {Date} date - Date object
+     * @returns {string} Formatted date string
+     */
+    const formatDateForAPI = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     };
 
     // Process uploaded files (now supports folders)
@@ -389,8 +722,8 @@ Format your response in a clear, actionable report.`;
                         <button
                             onClick={() => setViewMode('dashboard')}
                             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'dashboard'
-                                    ? 'bg-nests-teal text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-nests-teal text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             <BarChart3 className="w-5 h-5" />
@@ -399,8 +732,8 @@ Format your response in a clear, actionable report.`;
                         <button
                             onClick={() => setViewMode('excel')}
                             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold font-heading transition-colors ${viewMode === 'excel'
-                                    ? 'bg-nests-teal text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-nests-teal text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             <Table className="w-5 h-5" />
@@ -427,6 +760,8 @@ Format your response in a clear, actionable report.`;
                     setPasteData={setPasteData}
                     processPastedData={processPastedData}
                     isUploading={isUploading}
+                    onAPIFetchStart={handleAPIFetchStart}
+                    apiFetchProgress={apiFetchProgress}
                 />
 
                 {/* Conditional View Rendering - Dashboard or Excel */}
