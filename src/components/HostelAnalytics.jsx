@@ -656,11 +656,17 @@ const HostelAnalytics = () => {
                     });
                 });
 
-                // Update progress - mark as success
+                // Update progress - mark as success with enriched amounts
                 setEnrichmentProgress(prev => prev ? {
                     ...prev,
                     hostels: prev.hostels.map((h, idx) =>
-                        idx === i ? { ...h, status: 'success' } : h
+                        idx === i ? {
+                            ...h,
+                            status: 'success',
+                            total: total,
+                            netPrice: netPrice,
+                            taxes: taxes
+                        } : h
                     )
                 } : null);
 
@@ -699,8 +705,7 @@ const HostelAnalytics = () => {
             alert(`❌ Enrichment failed.\n\nNo bookings were enriched successfully. Check console for errors.`);
         }
 
-        // Clear progress after 3 seconds
-        setTimeout(() => setEnrichmentProgress(null), 3000);
+        // Note: Progress display stays open - user can collapse/expand it manually
 
     }, [weeklyData, enrichmentCancelled]);
     // Note: enrichmentProgress removed from deps to avoid recreating function on each progress update

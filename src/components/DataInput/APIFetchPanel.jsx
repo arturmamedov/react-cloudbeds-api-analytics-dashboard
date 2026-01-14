@@ -74,6 +74,9 @@ const APIFetchPanel = ({
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [warningData, setWarningData] = useState(null);  // Stores {existingWeek, weekRange, params}
 
+  // Enrichment progress collapse state
+  const [enrichmentCollapsed, setEnrichmentCollapsed] = useState(false);
+
   console.log('[APIFetchPanel] Component rendered', {
     fetchMode,
     selectedHostel,
@@ -486,44 +489,57 @@ const APIFetchPanel = ({
       {/* ENRICHMENT PROGRESS DISPLAY */}
       {/* ============================================================ */}
 
-      {isEnriching && enrichmentProgress && (
+      {enrichmentProgress && (
         <div className="border-2 border-nests-green rounded-lg p-4 bg-gray-50 space-y-3">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="text-sm font-mono text-gray-700 font-semibold">
-              💰 ENRICHING REVENUE DATA...
+              {isEnriching ? '💰 ENRICHING REVENUE DATA...' : '✅ ENRICHMENT COMPLETE'}
             </div>
-            <button
-              onClick={onEnrichCancel}
-              className="text-red-600 hover:text-red-700 font-semibold text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 transition-colors"
-            >
-              <X className="w-4 h-4" />
-              Cancel
-            </button>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="space-y-1">
-            <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-nests-green to-nests-teal h-full transition-all duration-300"
-                style={{ width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%` }}
-              />
-            </div>
-            <div className="text-xs text-gray-600 font-mono">
-              {enrichmentProgress.current}/{enrichmentProgress.total} bookings enriched (
-              {Math.round((enrichmentProgress.current / enrichmentProgress.total) * 100)}%)
-              • {Math.floor((Date.now() - enrichmentProgress.startTime) / 1000)}s elapsed
-              {enrichmentProgress.current > 0 && enrichmentProgress.current < enrichmentProgress.total && (
-                <span className="text-gray-500">
-                  {' '}• ~{Math.round(((Date.now() - enrichmentProgress.startTime) / enrichmentProgress.current) * (enrichmentProgress.total - enrichmentProgress.current) / 1000)}s remaining
-                </span>
+            <div className="flex items-center gap-2">
+              {isEnriching && (
+                <button
+                  onClick={onEnrichCancel}
+                  className="text-red-600 hover:text-red-700 font-semibold text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
               )}
+              <button
+                onClick={() => setEnrichmentCollapsed(!enrichmentCollapsed)}
+                className="text-nests-teal hover:text-nests-green font-semibold text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-teal-50 transition-colors"
+              >
+                {enrichmentCollapsed ? '▼ Expand' : '▲ Collapse'}
+              </button>
             </div>
           </div>
 
-          {/* Booking Status List (scrollable) */}
-          <div className="max-h-64 overflow-y-auto space-y-1 font-mono text-xs">
+          {/* Collapsible Details */}
+          {!enrichmentCollapsed && (
+            <>
+              {/* Progress Bar */}
+              <div className="space-y-1">
+                <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-nests-green to-nests-teal h-full transition-all duration-300"
+                    style={{ width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%` }}
+                  />
+                </div>
+                <div className="text-xs text-gray-600 font-mono">
+                  {enrichmentProgress.current}/{enrichmentProgress.total} bookings enriched (
+                  {Math.round((enrichmentProgress.current / enrichmentProgress.total) * 100)}%)
+                  • {Math.floor((Date.now() - enrichmentProgress.startTime) / 1000)}s elapsed
+                  {enrichmentProgress.current > 0 && enrichmentProgress.current < enrichmentProgress.total && (
+                    <span className="text-gray-500">
+                      {' '}• ~{Math.round(((Date.now() - enrichmentProgress.startTime) / enrichmentProgress.current) * (enrichmentProgress.total - enrichmentProgress.current) / 1000)}s remaining
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Booking Status List (scrollable) */}
+              <div className="max-h-64 overflow-y-auto space-y-1 font-mono text-xs">
             {enrichmentProgress.hostels.map((booking, idx) => (
               <div
                 key={`${booking.name}-${booking.reservationID}-${idx}`}
@@ -544,6 +560,11 @@ const APIFetchPanel = ({
                 </div>
 
                 <div className="flex items-center gap-2 text-xs">
+                  {booking.status === 'success' && booking.total != null && (
+                    <span className="text-green-600 font-semibold">
+                      Enriched: €{booking.total.toFixed(2)} (net: €{booking.netPrice?.toFixed(2)}, taxes: €{booking.taxes?.toFixed(2)})
+                    </span>
+                  )}
                   {booking.status === 'error' && (
                     <span className="text-red-600">{booking.error || 'Failed'}</span>
                   )}
@@ -570,6 +591,8 @@ const APIFetchPanel = ({
           <div className="text-xs text-gray-500 text-center pt-2 border-t">
             ⏱️ 100ms delay between calls (CloudBeds allows 10 requests/second)
           </div>
+            </>
+          )}
         </div>
       )}
 
