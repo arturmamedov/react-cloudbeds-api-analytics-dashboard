@@ -17,7 +17,9 @@ export const calculateHostelMetrics = (bookings) => {
     const nestPass = valid.filter(b => (b.nights || 0) >= 7);
     const monthly = nestPass.filter(b => (b.nights || 0) >= 28);
 
-    const totalRevenue = valid.reduce((sum, b) => sum + (b.price || 0), 0);
+    // Calculate total revenue
+    // Use b.total if enriched (includes taxes), otherwise fallback to b.price
+    const totalRevenue = valid.reduce((sum, b) => sum + (b.total || b.price || 0), 0);
     const totalNights = valid.reduce((sum, b) => sum + (b.nights || 1), 0);
     const adr = totalNights > 0 ? totalRevenue / totalNights : 0;
 
