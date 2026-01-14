@@ -618,29 +618,39 @@ const HostelAnalytics = () => {
                 const { total, netPrice, taxes } = await enrichBookingRevenue(booking.hostelID, booking.reservation);
 
                 const elapsed = Date.now() - bookingStartTime;
-                console.log(`[HostelAnalytics] ✅ Success: €${total} (${(elapsed / 1000).toFixed(1)}s)`);
+                console.log(`[HostelAnalytics] ✅ Success: €${total} (net: €${netPrice}, taxes: €${taxes}) (${(elapsed / 1000).toFixed(1)}s)`);
 
-                // Update booking in state
+                // Update booking in state AND recalculate metrics
                 setWeeklyData(prev => {
                     return prev.map(week => {
                         if (week.week !== booking.weekRange) return week;
+
+                        // Update the bookings array with enriched data
+                        const updatedBookings = week.hostels[booking.hostelName].bookings.map(b => {
+                            if (b.reservation !== booking.reservation) return b;
+                            return {
+                                ...b,
+                                total: total,
+                                netPrice: netPrice,
+                                taxes: taxes
+                            };
+                        });
+
+                        // CRITICAL: Recalculate hostel metrics from updated bookings
+                        // This ensures netRevenue and totalTaxes are aggregated correctly
+                        const recalculatedMetrics = calculateHostelMetrics(updatedBookings);
+
+                        console.log(`[HostelAnalytics] 📊 Recalculated metrics for ${booking.hostelName}:`, {
+                            revenue: recalculatedMetrics.revenue,
+                            netRevenue: recalculatedMetrics.netRevenue,
+                            totalTaxes: recalculatedMetrics.totalTaxes
+                        });
 
                         return {
                             ...week,
                             hostels: {
                                 ...week.hostels,
-                                [booking.hostelName]: {
-                                    ...week.hostels[booking.hostelName],
-                                    bookings: week.hostels[booking.hostelName].bookings.map(b => {
-                                        if (b.reservation !== booking.reservation) return b;
-                                        return {
-                                            ...b,
-                                            total: total,
-                                            netPrice: netPrice,
-                                            taxes: taxes
-                                        };
-                                    })
-                                }
+                                [booking.hostelName]: recalculatedMetrics  // Use NEW metrics, not old ones
                             }
                         };
                     });
@@ -692,7 +702,8 @@ const HostelAnalytics = () => {
         // Clear progress after 3 seconds
         setTimeout(() => setEnrichmentProgress(null), 3000);
 
-    }, [weeklyData, enrichmentCancelled, enrichmentProgress]);
+    }, [weeklyData, enrichmentCancelled]);
+    // Note: enrichmentProgress removed from deps to avoid recreating function on each progress update
 
     /**
      * Cancel ongoing enrichment process
