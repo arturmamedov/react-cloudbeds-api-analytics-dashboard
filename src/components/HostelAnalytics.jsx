@@ -592,6 +592,10 @@ const HostelAnalytics = () => {
         // STEP 3: Enrich each booking sequentially
         // ============================================================
 
+        // Track successful enrichments with local variable (not state)
+        // This avoids stale closure issues when reading state at the end
+        let successfulEnrichments = 0;
+
         for (let i = 0; i < allBookings.length; i++) {
             // Check if user cancelled
             if (enrichmentCancelled) {
@@ -670,6 +674,9 @@ const HostelAnalytics = () => {
                     )
                 } : null);
 
+                // Increment success counter
+                successfulEnrichments++;
+
                 // Rate limiting: Wait before next call (except for last booking)
                 if (i < allBookings.length - 1 && !enrichmentCancelled) {
                     console.log(`[HostelAnalytics] ⏱️  Waiting ${rateLimitMs}ms...`);
@@ -693,7 +700,8 @@ const HostelAnalytics = () => {
         // STEP 4: Complete enrichment
         // ============================================================
 
-        const successCount = enrichmentProgress?.hostels.filter(h => h.status === 'success').length || 0;
+        // Use local variable count instead of reading state (avoids stale closure)
+        const successCount = successfulEnrichments;
 
         setIsEnriching(false);
 
