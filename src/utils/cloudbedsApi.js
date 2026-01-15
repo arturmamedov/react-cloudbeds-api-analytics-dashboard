@@ -521,6 +521,10 @@ const enrichBookingRevenue = async (propertyID, reservationID) => {
 
     const result = await response.json();
 
+    // DEBUG: Log full API response for debugging
+    console.info(`[CloudBeds API] 🔍 FULL API RESPONSE for reservation ${reservationID}:`, result);
+    console.info(`[CloudBeds API] 🔍 RESERVATION DATA:`, result.data);
+
     if (!result.success || !result.data) {
       throw new Error('Invalid API response structure');
     }
@@ -531,6 +535,9 @@ const enrichBookingRevenue = async (propertyID, reservationID) => {
     // STEP 6: Extract Revenue Breakdown
     // ============================================================
 
+    // DEBUG: Log balanceDetailed object to see what fields are available
+    console.info(`[CloudBeds API] 🔍 BALANCE DETAILED:`, reservation.balanceDetailed);
+
     // total: Grand total with taxes (what guest pays)
     const total = parseFloat(reservation.total) || 0;
 
@@ -539,6 +546,15 @@ const enrichBookingRevenue = async (propertyID, reservationID) => {
 
     // taxes: Tax amount (from balanceDetailed.taxesFees)
     const taxes = parseFloat(reservation.balanceDetailed?.taxesFees) || null;
+
+    console.info(`[CloudBeds API] 🔍 EXTRACTED VALUES:`, {
+      total: total,
+      netPrice: netPrice,
+      taxes: taxes,
+      rawTotal: reservation.total,
+      rawSubTotal: reservation.balanceDetailed?.subTotal,
+      rawTaxesFees: reservation.balanceDetailed?.taxesFees
+    });
 
     console.log(`[CloudBeds API] ✅ Enriched: €${total} (net: €${netPrice}, taxes: €${taxes})`);
 
