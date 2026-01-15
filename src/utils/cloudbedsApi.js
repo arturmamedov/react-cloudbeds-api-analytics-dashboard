@@ -462,7 +462,7 @@ export const fetchReservationsFromCloudBeds = async (propertyID, startDate, endD
  *   console.error('Failed to enrich:', error.message);
  * }
  */
-export const enrichBookingRevenue = async (propertyID, reservationID) => {
+const enrichBookingRevenue = async (propertyID, reservationID) => {
   console.log(`[CloudBeds API] 💰 Enriching booking ${reservationID} for property ${propertyID}...`);
 
   // ============================================================
