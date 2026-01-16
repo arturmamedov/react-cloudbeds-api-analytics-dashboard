@@ -442,6 +442,31 @@ const HostelAnalytics = () => {
                 }
             });
 
+            // ============================================================
+            // PHASE 2: STEP 2.3 - Save to Database After Paste
+            // ============================================================
+            // Save pasted data to database for persistence
+            if (isSupabaseEnabled && metrics.bookings && metrics.bookings.length > 0) {
+                console.log(`[HostelAnalytics] 💾 Saving pasted data to database...`);
+
+                // Add hostelName to bookings for database grouping
+                const bookingsWithHostel = metrics.bookings.map(booking => ({
+                    ...booking,
+                    hostelName: detectedHostel
+                }));
+
+                // Save in background
+                saveReservationsToDatabase(bookingsWithHostel, 'paste', weekRange)
+                    .then(result => {
+                        if (result.success) {
+                            console.log(`[HostelAnalytics] ✅ Saved ${result.stats.saved} pasted bookings to database`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('[HostelAnalytics] ❌ Background DB save failed:', error);
+                    });
+            }
+
             setPasteData('');
             setSelectedHostel('');
             setSelectedWeekStart('');
@@ -720,6 +745,42 @@ const HostelAnalytics = () => {
                     });
 
                     console.log(`[HostelAnalytics] ✨ Data updated successfully!`);
+
+                    // ============================================================
+                    // PHASE 2: STEP 2.1 - Save to Database After API Fetch
+                    // ============================================================
+                    // Collect all bookings from results and save to database
+                    // This implements Option A: DB-First, State-Cached architecture
+                    // State is already updated above, now we persist to DB
+                    if (isSupabaseEnabled) {
+                        console.log(`[HostelAnalytics] 💾 Saving API-fetched data to database...`);
+
+                        const allBookings = [];
+                        Object.entries(results).forEach(([hostelName, metrics]) => {
+                            if (metrics.bookings && metrics.bookings.length > 0) {
+                                // Add hostelName to each booking for database grouping
+                                metrics.bookings.forEach(booking => {
+                                    allBookings.push({
+                                        ...booking,
+                                        hostelName: hostelName
+                                    });
+                                });
+                            }
+                        });
+
+                        if (allBookings.length > 0) {
+                            // Save in background (don't block user)
+                            saveReservationsToDatabase(allBookings, 'api', weekRange)
+                                .then(result => {
+                                    if (result.success) {
+                                        console.log(`[HostelAnalytics] ✅ Saved ${result.stats.saved} bookings to database`);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('[HostelAnalytics] ❌ Background DB save failed:', error);
+                                });
+                        }
+                    }
                 }
 
                 // Show summary
@@ -1143,6 +1204,40 @@ const HostelAnalytics = () => {
                     return sortWeeklyData([...prev, newWeekData]);
                 }
             });
+
+            // ============================================================
+            // PHASE 2: STEP 2.2 - Save to Database After Excel Upload
+            // ============================================================
+            // Save Excel-uploaded data to database for persistence
+            if (isSupabaseEnabled) {
+                console.log(`[HostelAnalytics] 💾 Saving Excel-uploaded data to database...`);
+
+                // Collect all bookings from all hostels
+                const allBookings = [];
+                Object.entries(weekReservations).forEach(([hostelName, metrics]) => {
+                    if (metrics.bookings && metrics.bookings.length > 0) {
+                        metrics.bookings.forEach(booking => {
+                            allBookings.push({
+                                ...booking,
+                                hostelName: hostelName
+                            });
+                        });
+                    }
+                });
+
+                if (allBookings.length > 0) {
+                    // Save in background
+                    saveReservationsToDatabase(allBookings, 'excel', weekRange)
+                        .then(result => {
+                            if (result.success) {
+                                console.log(`[HostelAnalytics] ✅ Saved ${result.stats.saved} Excel bookings to database`);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('[HostelAnalytics] ❌ Background DB save failed:', error);
+                        });
+                }
+            }
 
             setSelectedWeekStart('');
 
