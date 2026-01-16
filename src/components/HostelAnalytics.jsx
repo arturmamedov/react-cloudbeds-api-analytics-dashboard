@@ -1492,6 +1492,13 @@ Format your response in a clear, actionable report.`;
                     enrichmentProgress={enrichmentProgress}
                     onEnrichStart={enrichWithRevenueDetails}
                     onEnrichCancel={cancelEnrichment}
+                    // Database props (Phase 4)
+                    isSupabaseEnabled={isSupabaseEnabled}
+                    dbStatus={dbStatus}
+                    isSavingToDB={isSavingToDB}
+                    isLoadingFromDB={isLoadingFromDB}
+                    onLoadFromDB={loadReservationsFromDatabase}
+                    weeklyData={weeklyData}
                 />
 
                 {/* Conditional View Rendering - Dashboard or Excel */}

@@ -1,5 +1,5 @@
-import React from 'react';
-import { FolderOpen, Copy, FileText, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { FolderOpen, Copy, FileText, Download, Database, CheckCircle, AlertCircle, Info, Loader, Upload as UploadIcon } from 'lucide-react';
 import { hostelConfig } from '../../config/hostelConfig';
 import WeekSelector from './WeekSelector';
 import APIFetchPanel from './APIFetchPanel';
@@ -25,7 +25,14 @@ const DataInputPanel = ({
     isEnriching,
     enrichmentProgress,
     onEnrichStart,
-    onEnrichCancel
+    onEnrichCancel,
+    // Database props (Phase 4)
+    isSupabaseEnabled,
+    dbStatus,
+    isSavingToDB,
+    isLoadingFromDB,
+    onLoadFromDB,
+    weeklyData
 }) => {
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
@@ -205,6 +212,95 @@ const DataInputPanel = ({
                 <div className="mt-4 text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                     <p className="text-gray-600 mt-2">Processing data...</p>
+                </div>
+            )}
+
+            {/* ========================================================================
+                PHASE 4: DATABASE OPERATIONS PANEL
+                ======================================================================== */}
+            {/* Database Status & Operations - Always visible if Supabase is enabled */}
+            {isSupabaseEnabled && (
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                    <div className="bg-gradient-to-r from-nests-teal/10 to-nests-green/10 rounded-xl p-5 border border-nests-teal/20">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Database className="w-5 h-5 text-nests-teal" />
+                            <h3 className="font-bold text-gray-800 text-lg">Database Operations</h3>
+                        </div>
+
+                        {/* Database Status Indicator (Step 4.1) */}
+                        {dbStatus && (
+                            <div className={`flex items-center gap-2 px-4 py-3 rounded-lg mb-4 ${
+                                dbStatus.type === 'success'
+                                    ? 'bg-green-50 border border-green-200 text-green-800'
+                                    : dbStatus.type === 'error'
+                                    ? 'bg-red-50 border border-red-200 text-red-800'
+                                    : 'bg-blue-50 border border-blue-200 text-blue-800'
+                            }`}>
+                                {dbStatus.type === 'success' && <CheckCircle className="w-4 h-4" />}
+                                {dbStatus.type === 'error' && <AlertCircle className="w-4 h-4" />}
+                                {dbStatus.type === 'info' && <Info className="w-4 h-4" />}
+                                <span className="text-sm font-medium">{dbStatus.message}</span>
+                            </div>
+                        )}
+
+                        {/* Manual Database Operations (Step 4.3) */}
+                        <div className="space-y-3">
+                            <p className="text-sm text-gray-600 mb-3">
+                                Data is automatically saved to the database. Use the button below to load historical data:
+                            </p>
+
+                            {/* Load from Database Button */}
+                            <button
+                                onClick={() => {
+                                    // Load last 3 months of data
+                                    const endDate = new Date();
+                                    const startDate = new Date();
+                                    startDate.setMonth(startDate.getMonth() - 3);
+                                    onLoadFromDB(startDate, endDate);
+                                }}
+                                disabled={isLoadingFromDB || isSavingToDB}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-nests-teal text-white rounded-lg font-semibold hover:bg-nests-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isLoadingFromDB ? (
+                                    <>
+                                        <Loader className="w-4 h-4 animate-spin" />
+                                        Loading from database...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Database className="w-4 h-4" />
+                                        Load Last 3 Months from Database
+                                    </>
+                                )}
+                            </button>
+
+                            {/* Current Data Info */}
+                            {weeklyData && weeklyData.length > 0 && (
+                                <div className="text-sm text-gray-600 bg-white rounded-lg p-3 border border-gray-200">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Info className="w-4 h-4 text-nests-teal" />
+                                        <span className="font-semibold">Currently Viewing:</span>
+                                    </div>
+                                    <ul className="ml-6 space-y-1">
+                                        <li>• {weeklyData.length} week{weeklyData.length !== 1 ? 's' : ''} of data</li>
+                                        <li>• {Object.keys(weeklyData[0]?.hostels || {}).length} hostel{Object.keys(weeklyData[0]?.hostels || {}).length !== 1 ? 's' : ''}</li>
+                                        <li>• Auto-saved to database ✓</li>
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Loading State (Step 4.2) */}
+                            {(isLoadingFromDB || isSavingToDB) && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600 bg-white rounded-lg p-3 border border-gray-200">
+                                    <Loader className="w-4 h-4 animate-spin text-nests-teal" />
+                                    <span>
+                                        {isLoadingFromDB && 'Loading data from database...'}
+                                        {isSavingToDB && 'Saving data to database...'}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
