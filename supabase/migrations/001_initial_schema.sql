@@ -368,7 +368,14 @@ INSERT INTO hostels (cloudbeds_id, name, slug, active) VALUES
   ('6733', 'Flamingo', 'flamingo', true),
   ('316328', 'Puerto', 'puerto', true),
   ('315588', 'Arena', 'arena', true),
-  ('318698', 'Sitges', 'sitges', true)
+  ('316438', 'Duque', 'duque', true),
+  ('316428', 'Las Palmas', 'las-palmas', true),
+  ('316437', 'Aguere', 'aguere', true),
+  ('316440', 'Medano', 'medano', true),
+  ('316443', 'Los Amigos', 'los-amigos', true),
+  ('316442', 'Cisne', 'cisne', true),
+  ('316441', 'Ashavana', 'ashavana', true),
+  ('316439', 'Las Eras', 'las-eras', true)
 ON CONFLICT (cloudbeds_id) DO NOTHING;
 
 -- ============================================================================
