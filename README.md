@@ -13,6 +13,7 @@ This React-based dashboard transforms your CloudBeds reservation exports into ac
 - **Copy & Paste**: Lightning-fast data entry from CloudBeds web interface
 - **CloudBeds API**: Direct API integration for real-time data fetching ✨ NEW
 - **Revenue Enrichment**: Get detailed revenue breakdown with tax information ✨ NEW
+- **Database Persistence**: Optional Supabase integration for data storage ✨ NEW
 - **Auto-Detection**: Automatically identifies hostels by name or CloudBeds property ID
 - **Multi-Hostel Support**: Handle multiple properties simultaneously
 
@@ -159,6 +160,96 @@ The CloudBeds `getReservations` (plural) endpoint returns a `balance` field that
 
 **Note:** This is a manual process due to API rate limits. Enrich only when you need detailed tax breakdown analysis.
 
+### Method 4: Database Persistence (Optional) ✨ NEW
+**Persistent storage with Supabase PostgreSQL**
+
+All your data can now be automatically saved to a Supabase database for:
+- ✅ **Persistence**: Data survives page refreshes and browser restarts
+- ✅ **Historical Tracking**: Build up weeks/months of data over time
+- ✅ **Multi-Device Access**: Access your data from anywhere
+- ✅ **Automatic Backups**: Supabase handles backups automatically
+- ✅ **Future-Ready**: Perfect for adding a backend later
+
+#### Database Setup (One-Time, Optional)
+
+**1. Create Supabase Project** (5 minutes)
+- Go to [supabase.com](https://supabase.com) and sign up
+- Create new project: `nests-hostels-analytics`
+- Choose Europe region (closest to Spain)
+- Wait 2-3 minutes for provisioning
+
+**2. Run Database Migration** (2 minutes)
+- In Supabase dashboard → **SQL Editor**
+- Copy contents of `supabase/migrations/001_initial_schema.sql`
+- Paste and click **Run**
+- Verify tables created in **Table Editor** (4 tables, 11 hostels)
+
+**3. Add Credentials to .env** (1 minute)
+```bash
+# Add these to your .env file:
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+Get these values from: Supabase dashboard → **Settings** → **API**
+
+**4. Restart Dev Server**
+```bash
+# Stop server (Ctrl+C) and restart:
+npm run dev
+```
+
+#### How It Works
+
+**Automatic Save (Background)**
+- All data sources (API, Excel, paste) automatically save to database
+- Happens in background - doesn't slow down your workflow
+- Green status indicator shows: "Saved X bookings to database"
+
+**Manual Load (On Demand)**
+- Click "Load Last 3 Months from Database" button
+- Loads historical data from database into dashboard
+- Perfect for reviewing past performance
+
+**Architecture: DB-First, State-Cached**
+- Database is the source of truth
+- Dashboard state is a fast cache for rendering
+- Best of both worlds: persistence + speed
+
+#### Database Features
+
+**Data Storage**:
+- `reservations`: All booking data with structured + flexible JSONB fields
+- `weekly_reports`: Pre-calculated metrics for fast loading
+- `hostels`: Master list of your 11 properties
+- `data_imports`: Complete audit trail
+
+**Auto-Calculated Fields**:
+- `lead_time`: Days between booking and check-in
+- `is_nest_pass`: True for 7+ night bookings
+- `is_monthly`: True for 28+ night bookings
+- `is_cancelled`: Auto-detected from status
+
+**Revenue Enrichment Integration**:
+- Enriched revenue automatically updates database
+- `total_price`, `net_price`, `taxes` fields populated
+- `enriched_at` timestamp tracks when enrichment occurred
+
+#### Benefits
+
+**Without Database** (Default):
+- ✅ Works immediately (no setup)
+- ✅ Fast and simple
+- ❌ Data lost on page refresh
+- ❌ No historical tracking
+
+**With Database** (Recommended):
+- ✅ Data persists forever
+- ✅ Historical performance tracking
+- ✅ Multi-device access
+- ✅ Automatic backups
+- ✅ Future-proof (ready for backend)
+- ✅ Free tier: 500MB storage, 50k monthly users
+
 #### Troubleshooting
 | Issue | Solution |
 |-------|----------|
@@ -177,16 +268,18 @@ The CloudBeds `getReservations` (plural) endpoint returns a `balance` field that
 
 ### Core Technologies
 - **React 18**: Modern UI framework with hooks
-- **Tailwind CSS**: Utility-first styling
+- **Tailwind CSS**: Utility-first styling with Nests brand colors
 - **Recharts**: Interactive charts and visualizations
 - **SheetJS (XLSX)**: Excel file processing
 - **Lucide React**: Modern icon library
+- **Supabase** (Optional): PostgreSQL database for data persistence ✨ NEW
 
 ### Key Dependencies
 - **Math Operations**: Automatic ADR and lead time calculations
 - **Date Processing**: Excel date parsing and week range generation
 - **AI Integration**: Claude API for intelligent analysis
 - **Responsive Design**: Mobile-first responsive grid system
+- **Database Layer**: Supabase client for persistent storage ✨ NEW
 
 ### Browser Compatibility
 - Modern browsers with ES6+ support
