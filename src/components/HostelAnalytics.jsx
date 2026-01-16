@@ -1027,6 +1027,23 @@ const HostelAnalytics = () => {
                     });
                 });
 
+                // ============================================================
+                // PHASE 3: STEP 3.1 - Save enriched revenue to database
+                // ============================================================
+                // Update database with enriched revenue data immediately
+                // This ensures DB stays in sync with state during enrichment
+                if (isSupabaseEnabled) {
+                    // Update in background (don't block enrichment progress)
+                    updateReservationRevenue(booking.reservation, {
+                        total: total,
+                        netPrice: netPrice,
+                        taxes: taxes
+                    }).catch(error => {
+                        console.error(`[HostelAnalytics] ⚠️  Failed to update DB for ${booking.reservation}:`, error);
+                        // Don't fail the enrichment if DB update fails - state is already updated
+                    });
+                }
+
                 // Update progress - mark as success with enriched amounts
                 setEnrichmentProgress(prev => prev ? {
                     ...prev,
