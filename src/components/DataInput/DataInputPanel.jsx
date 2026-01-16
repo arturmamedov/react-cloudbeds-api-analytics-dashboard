@@ -19,7 +19,13 @@ const DataInputPanel = ({
     processPastedData,
     isUploading,
     onAPIFetchStart,      // NEW: Callback for API fetch
-    apiFetchProgress      // PHASE 4: Progress tracking state
+    apiFetchProgress,     // PHASE 4: Progress tracking state
+    // Revenue enrichment props
+    canEnrichRevenue,
+    isEnriching,
+    enrichmentProgress,
+    onEnrichStart,
+    onEnrichCancel
 }) => {
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
@@ -186,6 +192,12 @@ const DataInputPanel = ({
                     onFetchStart={onAPIFetchStart}
                     isUploading={isUploading}
                     apiFetchProgress={apiFetchProgress}
+                    // Revenue enrichment props
+                    canEnrichRevenue={canEnrichRevenue}
+                    isEnriching={isEnriching}
+                    enrichmentProgress={enrichmentProgress}
+                    onEnrichStart={onEnrichStart}
+                    onEnrichCancel={onEnrichCancel}
                 />
             )}
 

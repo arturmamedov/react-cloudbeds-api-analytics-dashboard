@@ -17,13 +17,21 @@ export const calculateHostelMetrics = (bookings) => {
     const nestPass = valid.filter(b => (b.nights || 0) >= 7);
     const monthly = nestPass.filter(b => (b.nights || 0) >= 28);
 
-    const totalRevenue = valid.reduce((sum, b) => sum + (b.price || 0), 0);
+    // Calculate total revenue
+    // Use b.total if enriched (includes taxes), otherwise fallback to b.price
+    const totalRevenue = valid.reduce((sum, b) => sum + (b.total || b.price || 0), 0);
     const totalNights = valid.reduce((sum, b) => sum + (b.nights || 1), 0);
     const adr = totalNights > 0 ? totalRevenue / totalNights : 0;
 
     const avgLeadTime = valid
         .filter(b => b.leadTime !== null)
         .reduce((sum, b, _, arr) => sum + b.leadTime / arr.length, 0);
+
+    // Calculate enriched revenue metrics (netRevenue and totalTaxes)
+    // These are only available for bookings that have been enriched via API
+    const enrichedBookings = valid.filter(b => b.netPrice != null && b.taxes != null);
+    const netRevenue = enrichedBookings.reduce((sum, b) => sum + (b.netPrice || 0), 0);
+    const totalTaxes = enrichedBookings.reduce((sum, b) => sum + (b.taxes || 0), 0);
 
     return {
         count: bookings.length,
@@ -34,6 +42,8 @@ export const calculateHostelMetrics = (bookings) => {
         nestPass: nestPass.length,  // NEW
         monthly: monthly.length,     // NEW
         avgLeadTime: Math.round(avgLeadTime),
+        netRevenue: netRevenue,      // NEW: Enriched data
+        totalTaxes: totalTaxes,      // NEW: Enriched data
         bookings: bookings
     };
 };

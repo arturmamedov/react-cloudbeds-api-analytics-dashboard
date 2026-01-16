@@ -416,11 +416,179 @@ export const fetchReservationsFromCloudBeds = async (propertyID, startDate, endD
 };
 
 // ============================================================
+// REVENUE ENRICHMENT FUNCTION
+// ============================================================
+
+/**
+ * Enrich single booking with detailed revenue breakdown
+ *
+ * This function makes an individual API call to fetch complete revenue details
+ * for a single reservation. The bulk getReservations endpoint does NOT include
+ * revenue fields (only has `balance` which shows 0 for paid bookings).
+ *
+ * **When to use:**
+ * - After bulk fetch with getReservations (fast but no revenue)
+ * - User manually triggers "Enrich Revenue Data" button
+ * - Shows real-time progress during enrichment
+ *
+ * **API Endpoint:** GET /getReservation (singular)
+ *
+ * **Returns:**
+ * - `total`: Grand total with taxes (what guest pays)
+ * - `netPrice`: Revenue without taxes (subTotal from balanceDetailed)
+ * - `taxes`: Tax amount (taxesFees from balanceDetailed)
+ *
+ * **Rate Limiting:**
+ * - CloudBeds allows 10 requests per second
+ * - Caller should add ~100ms delays between calls
+ * - Function uses TIMEOUT for request timeout (default 30 seconds)
+ *
+ * @param {string} propertyID - CloudBeds property ID (e.g., "6733")
+ * @param {string} reservationID - Reservation ID to enrich
+ * @returns {Promise<{total: number, netPrice: number|null, taxes: number|null}>}
+ * @throws {Error} If API call fails or credentials missing
+ *
+ * @example
+ * // Enrich a single booking
+ * const revenue = await enrichBookingRevenue('6733', '9326721060388');
+ * // Returns: { total: 59.1, netPrice: 52.73, taxes: 6.37 }
+ *
+ * @example
+ * // With error handling
+ * try {
+ *   const revenue = await enrichBookingRevenue(propertyID, reservationID);
+ *   console.log(`Total: €${revenue.total}, Net: €${revenue.netPrice}, Taxes: €${revenue.taxes}`);
+ * } catch (error) {
+ *   console.error('Failed to enrich:', error.message);
+ * }
+ */
+const enrichBookingRevenue = async (propertyID, reservationID) => {
+  console.log(`[CloudBeds API] 💰 Enriching booking ${reservationID} for property ${propertyID}...`);
+
+  // ============================================================
+  // STEP 1: Validate API Key
+  // ============================================================
+
+  if (!API_KEY) {
+    console.error('[CloudBeds API] ❌ API key not configured');
+    throw new Error('CloudBeds API key not found in .env. Please add VITE_CLOUDBEDS_API_KEY.');
+  }
+
+  // ============================================================
+  // STEP 2: Build API Request
+  // ============================================================
+
+  const url = `${BASE_URL}/getReservation?propertyID=${propertyID}&reservationID=${reservationID}`;
+  console.log(`[CloudBeds API] 🔗 GET ${url}`);
+
+  // Setup timeout controller
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+  try {
+    // ============================================================
+    // STEP 3: Make HTTP Request
+    // ============================================================
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    // ============================================================
+    // STEP 4: Handle HTTP Errors
+    // ============================================================
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Invalid API key. Check VITE_CLOUDBEDS_API_KEY in .env');
+      }
+      if (response.status === 404) {
+        throw new Error(`Reservation ${reservationID} not found`);
+      }
+      throw new Error(`API error ${response.status}: ${response.statusText}`);
+    }
+
+    // ============================================================
+    // STEP 5: Parse JSON Response
+    // ============================================================
+
+    const result = await response.json();
+
+    // DEBUG: Log full API response for debugging
+    console.info(`[CloudBeds API] 🔍 FULL API RESPONSE for reservation ${reservationID}:`, result);
+    console.info(`[CloudBeds API] 🔍 RESERVATION DATA:`, result.data);
+
+    if (!result.success || !result.data) {
+      throw new Error('Invalid API response structure');
+    }
+
+    const reservation = result.data;
+
+    // ============================================================
+    // STEP 6: Extract Revenue Breakdown
+    // ============================================================
+
+    // DEBUG: Log balanceDetailed object to see what fields are available
+    console.info(`[CloudBeds API] 🔍 BALANCE DETAILED:`, reservation.balanceDetailed);
+
+    // total: Grand total with taxes (what guest pays)
+    const total = parseFloat(reservation.total) || 0;
+
+    // netPrice: Revenue without taxes (from balanceDetailed.subTotal)
+    const netPrice = parseFloat(reservation.balanceDetailed?.subTotal) || null;
+
+    // taxes: Tax amount (from balanceDetailed.taxesFees)
+    const taxes = parseFloat(reservation.balanceDetailed?.taxesFees) || null;
+
+    console.info(`[CloudBeds API] 🔍 EXTRACTED VALUES:`, {
+      total: total,
+      netPrice: netPrice,
+      taxes: taxes,
+      rawTotal: reservation.total,
+      rawSubTotal: reservation.balanceDetailed?.subTotal,
+      rawTaxesFees: reservation.balanceDetailed?.taxesFees
+    });
+
+    console.log(`[CloudBeds API] ✅ Enriched: €${total} (net: €${netPrice}, taxes: €${taxes})`);
+
+    return { total, netPrice, taxes };
+
+  } catch (error) {
+    // ============================================================
+    // ERROR HANDLING
+    // ============================================================
+
+    if (error.name === 'AbortError') {
+      console.error(`[CloudBeds API] ⏱️  Enrichment timeout after ${TIMEOUT}ms`);
+      throw new Error(`Request timeout after ${TIMEOUT}ms`);
+    }
+
+    if (error instanceof TypeError) {
+      console.error('[CloudBeds API] 🌐 Network error during enrichment');
+      throw new Error('Network error. Check internet connection.');
+    }
+
+    console.error(`[CloudBeds API] ❌ Enrichment failed:`, error);
+    throw error;
+  }
+};
+
+// ============================================================
 // MODULE EXPORTS
 // ============================================================
 
 // Default export for convenience
 export default fetchReservationsFromCloudBeds;
+
+// Named export for enrichment
+export { enrichBookingRevenue };
 
 // ============================================================
 // END OF FILE

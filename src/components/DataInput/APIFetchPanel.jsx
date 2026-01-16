@@ -11,18 +11,24 @@
  * - Real-time progress display with timing
  * - Cancel functionality for long operations
  * - Warning modal before overwriting existing data
+ * - Revenue enrichment button (after API fetch completes)
+ * - Enrichment progress display with real-time updates
+ * - Cancel enrichment with rate-limited API calls
  *
  * Data Flow:
  * User selects week + hostel(s) → Click "Fetch" → Parent callback triggered →
- * HostelAnalytics fetches from API → Data updates → Dashboard re-renders
+ * HostelAnalytics fetches from API → Data updates → Dashboard re-renders →
+ * User clicks "Enrich Revenue" → Individual API calls for detailed revenue →
+ * Real-time progress updates → Tax breakdown available
  *
  * @component
  * @author Artur Mamedov & Claude
  * @since 2026-01-12
+ * @updated 2026-01-13 - Added revenue enrichment feature
  */
 
 import React, { useState, useCallback } from 'react';
-import { Loader, Download, AlertCircle } from 'lucide-react';
+import { Loader, Download, AlertCircle, DollarSign, X } from 'lucide-react';
 import WeekSelector from './WeekSelector';
 import { hostelConfig } from '../../config/hostelConfig';
 
@@ -35,13 +41,24 @@ import { hostelConfig } from '../../config/hostelConfig';
  * @param {Function} props.onFetchStart - Called when fetch begins
  * @param {boolean} props.isUploading - Global loading state from parent
  * @param {object} props.apiFetchProgress - PHASE 4: Progress tracking state
+ * @param {boolean} props.canEnrichRevenue - Whether enrichment is available
+ * @param {boolean} props.isEnriching - Whether enrichment is in progress
+ * @param {object} props.enrichmentProgress - Enrichment progress state
+ * @param {Function} props.onEnrichStart - Called when enrichment begins
+ * @param {Function} props.onEnrichCancel - Called to cancel enrichment
  */
 const APIFetchPanel = ({
   selectedWeekStart,
   setSelectedWeekStart,
   onFetchStart,
   isUploading,
-  apiFetchProgress  // PHASE 4: Real-time progress tracking
+  apiFetchProgress,  // PHASE 4: Real-time progress tracking
+  // Revenue enrichment props
+  canEnrichRevenue,
+  isEnriching,
+  enrichmentProgress,
+  onEnrichStart,
+  onEnrichCancel
 }) => {
   // ============================================================
   // STATE MANAGEMENT
@@ -56,6 +73,9 @@ const APIFetchPanel = ({
   // PHASE 5: Warning modal state
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [warningData, setWarningData] = useState(null);  // Stores {existingWeek, weekRange, params}
+
+  // Enrichment progress collapse state
+  const [enrichmentCollapsed, setEnrichmentCollapsed] = useState(false);
 
   console.log('[APIFetchPanel] Component rendered', {
     fetchMode,
@@ -341,6 +361,38 @@ const APIFetchPanel = ({
       )}
 
       {/* ============================================================ */}
+      {/* REVENUE ENRICHMENT BUTTON */}
+      {/* ============================================================ */}
+
+      {/* Show enrichment button if there's data with reservationIDs that need enrichment */}
+      {canEnrichRevenue && !isUploading && !isEnriching && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <button
+            onClick={onEnrichStart}
+            disabled={isEnriching}
+            className="w-full bg-gradient-to-r from-nests-green to-nests-teal hover:from-nests-teal hover:to-nests-green text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <DollarSign className="w-5 h-5" />
+            <span>Enrich Revenue Data</span>
+          </button>
+          <p className="text-xs text-center text-gray-600 mt-2">
+            Make individual API calls to get detailed revenue breakdown with tax information
+          </p>
+        </div>
+      )}
+
+      {/* Show info when enrichment is not available */}
+      {!canEnrichRevenue && !isUploading && !isEnriching && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <p className="text-sm text-gray-600 text-center">
+              💡 Fetch data first to enable revenue enrichment
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
       {/* LOADING STATE INFO */}
       {/* ============================================================ */}
 
@@ -430,6 +482,117 @@ const APIFetchPanel = ({
               {apiFetchProgress.hostels.filter(h => h.status === 'error').length} failed
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* ENRICHMENT PROGRESS DISPLAY */}
+      {/* ============================================================ */}
+
+      {enrichmentProgress && (
+        <div className="border-2 border-nests-green rounded-lg p-4 bg-gray-50 space-y-3">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-mono text-gray-700 font-semibold">
+              {isEnriching ? '💰 ENRICHING REVENUE DATA...' : '✅ ENRICHMENT COMPLETE'}
+            </div>
+            <div className="flex items-center gap-2">
+              {isEnriching && (
+                <button
+                  onClick={onEnrichCancel}
+                  className="text-red-600 hover:text-red-700 font-semibold text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
+              )}
+              <button
+                onClick={() => setEnrichmentCollapsed(!enrichmentCollapsed)}
+                className="text-nests-teal hover:text-nests-green font-semibold text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-teal-50 transition-colors"
+              >
+                {enrichmentCollapsed ? '▼ Expand' : '▲ Collapse'}
+              </button>
+            </div>
+          </div>
+
+          {/* Collapsible Details */}
+          {!enrichmentCollapsed && (
+            <>
+              {/* Progress Bar */}
+              <div className="space-y-1">
+                <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-nests-green to-nests-teal h-full transition-all duration-300"
+                    style={{ width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%` }}
+                  />
+                </div>
+                <div className="text-xs text-gray-600 font-mono">
+                  {enrichmentProgress.current}/{enrichmentProgress.total} bookings enriched (
+                  {Math.round((enrichmentProgress.current / enrichmentProgress.total) * 100)}%)
+                  • {Math.floor((Date.now() - enrichmentProgress.startTime) / 1000)}s elapsed
+                  {enrichmentProgress.current > 0 && enrichmentProgress.current < enrichmentProgress.total && (
+                    <span className="text-gray-500">
+                      {' '}• ~{Math.round(((Date.now() - enrichmentProgress.startTime) / enrichmentProgress.current) * (enrichmentProgress.total - enrichmentProgress.current) / 1000)}s remaining
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Booking Status List (scrollable) */}
+              <div className="max-h-64 overflow-y-auto space-y-1 font-mono text-xs">
+            {enrichmentProgress.hostels.map((booking, idx) => (
+              <div
+                key={`${booking.name}-${booking.reservationID}-${idx}`}
+                className={`flex items-center justify-between p-2 rounded ${
+                  booking.status === 'success' ? 'bg-green-50' :
+                  booking.status === 'error' ? 'bg-red-50' :
+                  booking.status === 'loading' ? 'bg-blue-50' :
+                  'bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {booking.status === 'success' && <span className="text-green-600">✓</span>}
+                  {booking.status === 'error' && <span className="text-red-600">✗</span>}
+                  {booking.status === 'loading' && <span className="text-blue-600">⏳</span>}
+                  {booking.status === 'pending' && <span className="text-gray-400">⏸</span>}
+                  <span className="w-24 font-medium truncate">{booking.name}</span>
+                  <span className="text-gray-500">#{booking.reservationID}</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs">
+                  {booking.status === 'success' && booking.total != null && (
+                    <span className="text-green-600 font-semibold">
+                      Enriched: €{booking.total.toFixed(2)} (net: €{booking.netPrice?.toFixed(2)}, taxes: €{booking.taxes?.toFixed(2)})
+                    </span>
+                  )}
+                  {booking.status === 'error' && (
+                    <span className="text-red-600">{booking.error || 'Failed'}</span>
+                  )}
+                  {booking.status === 'loading' && (
+                    <span className="text-blue-600 animate-pulse">Enriching...</span>
+                  )}
+                  {booking.status === 'pending' && (
+                    <span className="text-gray-400">Queued</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Summary */}
+          <div className="flex items-center justify-between text-sm pt-2 border-t">
+            <div className="text-gray-700 font-mono">
+              ⚡ {enrichmentProgress.hostels.filter(h => h.status === 'success').length} enriched,{' '}
+              {enrichmentProgress.hostels.filter(h => h.status === 'error').length} failed
+            </div>
+          </div>
+
+          {/* Rate Limit Notice */}
+          <div className="text-xs text-gray-500 text-center pt-2 border-t">
+            ⏱️ 100ms delay between calls (CloudBeds allows 10 requests/second)
+          </div>
+            </>
+          )}
         </div>
       )}
 

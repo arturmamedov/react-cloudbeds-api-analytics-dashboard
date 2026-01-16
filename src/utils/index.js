@@ -15,7 +15,8 @@ export {
 // Formatter utilities
 export {
     formatCurrency,
-    parsePrice
+    parsePrice,
+    formatRevenue
 } from './formatters';
 
 // Metrics calculation utilities
@@ -34,5 +35,6 @@ export {
 
 // CloudBeds API utilities
 export {
-    fetchReservationsFromCloudBeds
+    fetchReservationsFromCloudBeds,
+    enrichBookingRevenue
 } from './cloudbedsApi';
