@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { BarChart3, Table, Brain, Receipt } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -20,6 +20,17 @@ import {
 
 // Config imports
 import { hostelConfig } from '../config/hostelConfig';
+
+// Database imports (Phase 1: Database Integration)
+import { isSupabaseConfigured, testConnection } from '../config/supabaseClient';
+import {
+    seedHostelsFromConfig,
+    saveReservations,
+    getReservationsByDateRange,
+    updateReservationRevenue,
+    createDataImport,
+    transformDBReservationToApp
+} from '../utils/dbUtils';
 
 // Component imports
 import WarningBanner from './DataInput/WarningBanner';
@@ -67,6 +78,301 @@ const HostelAnalytics = () => {
     // When true, shows revenue as "€52.73 + (€6.92 taxes)" format
     // When false, shows only total revenue "€59.65"
     const [showTaxBreakdown, setShowTaxBreakdown] = useState(false);
+
+    // Database state (Phase 1: Database Integration - Option A: DB-First, State-Cached)
+    // Database is the source of truth, state is just a cache for rendering
+    const [isSupabaseEnabled, setIsSupabaseEnabled] = useState(false);
+    const [isSavingToDB, setIsSavingToDB] = useState(false);
+    const [isLoadingFromDB, setIsLoadingFromDB] = useState(false);
+    const [dbStatus, setDbStatus] = useState(null); // { type: 'success' | 'error' | 'info', message: string }
+
+    // ============================================================================
+    // DATABASE CONNECTION & INITIALIZATION (Phase 1: Step 1.2)
+    // ============================================================================
+
+    /**
+     * Check Supabase connection and seed hostels on component mount
+     *
+     * This runs once when the app loads and:
+     * 1. Checks if Supabase is configured (.env has credentials)
+     * 2. Tests the database connection
+     * 3. Seeds hostels from hostelConfig if connection successful
+     * 4. Sets isSupabaseEnabled flag for conditional DB operations
+     *
+     * If Supabase is not configured, the app still works in memory-only mode.
+     */
+    useEffect(() => {
+        const initializeDatabase = async () => {
+            console.log('[HostelAnalytics] 🔌 Checking Supabase connection...');
+
+            // Check if Supabase environment variables are set
+            if (!isSupabaseConfigured()) {
+                console.log('[HostelAnalytics] ⚠️  Supabase not configured - running in memory-only mode');
+                setDbStatus({
+                    type: 'info',
+                    message: 'Database not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env to enable persistence.'
+                });
+                return;
+            }
+
+            // Test connection
+            const connectionResult = await testConnection();
+
+            if (connectionResult.success) {
+                console.log('[HostelAnalytics] ✅ Supabase connected successfully');
+                setIsSupabaseEnabled(true);
+
+                // Seed hostels from config (upsert - won't create duplicates)
+                console.log('[HostelAnalytics] 🌱 Seeding hostels from config...');
+                const seedResult = await seedHostelsFromConfig();
+
+                if (seedResult.success) {
+                    console.log(`[HostelAnalytics] ✅ Hostels seeded: ${seedResult.data.length} hostels`);
+                    setDbStatus({
+                        type: 'success',
+                        message: `Database connected • ${seedResult.data.length} hostels ready`
+                    });
+                } else {
+                    console.error('[HostelAnalytics] ❌ Hostel seeding failed:', seedResult.error);
+                    setDbStatus({
+                        type: 'error',
+                        message: `Database connected but hostel seeding failed: ${seedResult.error}`
+                    });
+                }
+            } else {
+                console.error('[HostelAnalytics] ❌ Supabase connection failed:', connectionResult.message);
+                setIsSupabaseEnabled(false);
+                setDbStatus({
+                    type: 'error',
+                    message: `Database connection failed: ${connectionResult.message}`
+                });
+            }
+        };
+
+        initializeDatabase();
+    }, []); // Run once on mount
+
+    // ============================================================================
+    // DATABASE HELPER FUNCTIONS (Phase 1: Steps 1.3 & 1.4)
+    // ============================================================================
+
+    /**
+     * Save reservations to database (Step 1.3)
+     *
+     * Saves booking data to the database for persistence.
+     * Called after API fetch, Excel upload, or paste operations.
+     *
+     * Process:
+     * 1. Group bookings by hostel
+     * 2. Save each hostel's bookings to DB (upsert by reservationID)
+     * 3. Create data import audit record
+     * 4. Return stats (total saved, errors)
+     *
+     * @param {Array} allBookings - Array of booking objects with hostelName property
+     * @param {string} dataSource - 'api', 'excel', or 'paste'
+     * @param {string} weekLabel - Week label for audit trail
+     * @returns {Promise<{success: boolean, stats: {saved: number, errors: number}}>}
+     */
+    const saveReservationsToDatabase = useCallback(async (allBookings, dataSource, weekLabel) => {
+        if (!isSupabaseEnabled) {
+            console.log('[HostelAnalytics] ⚠️  Supabase not enabled - skipping DB save');
+            return { success: false, stats: { saved: 0, errors: 0 } };
+        }
+
+        console.log(`[HostelAnalytics] 💾 Saving ${allBookings.length} reservations to database...`);
+        setIsSavingToDB(true);
+
+        try {
+            // Group bookings by hostel
+            const bookingsByHostel = {};
+            allBookings.forEach(booking => {
+                const hostelName = booking.hostelName;
+                if (!bookingsByHostel[hostelName]) {
+                    bookingsByHostel[hostelName] = [];
+                }
+                bookingsByHostel[hostelName].push(booking);
+            });
+
+            let totalSaved = 0;
+            let totalErrors = 0;
+            const hostelsAffected = [];
+
+            // Save each hostel's bookings
+            for (const [hostelName, bookings] of Object.entries(bookingsByHostel)) {
+                const hostelSlug = hostelName.toLowerCase().replace(/\s+/g, '-');
+
+                console.log(`[HostelAnalytics] 💾 Saving ${bookings.length} bookings for ${hostelName}...`);
+
+                const result = await saveReservations(bookings, hostelSlug, dataSource);
+
+                if (result.success) {
+                    totalSaved += result.stats.saved;
+                    hostelsAffected.push(hostelSlug);
+                    console.log(`[HostelAnalytics] ✅ Saved ${result.stats.saved} bookings for ${hostelName}`);
+                } else {
+                    totalErrors++;
+                    console.error(`[HostelAnalytics] ❌ Failed to save ${hostelName}:`, result.error);
+                }
+            }
+
+            // Create data import audit record
+            if (totalSaved > 0) {
+                await createDataImport({
+                    importType: dataSource,
+                    importSource: `HostelAnalytics - ${dataSource} import`,
+                    dateFrom: allBookings[0]?.bookingDate || null,
+                    dateTo: allBookings[allBookings.length - 1]?.bookingDate || null,
+                    reservationsCount: totalSaved,
+                    hostelsAffected: hostelsAffected,
+                    status: totalErrors > 0 ? 'partial' : 'completed',
+                });
+            }
+
+            const stats = { saved: totalSaved, errors: totalErrors };
+            console.log(`[HostelAnalytics] ✅ Database save complete:`, stats);
+
+            setDbStatus({
+                type: totalErrors > 0 ? 'info' : 'success',
+                message: totalErrors > 0
+                    ? `Saved ${totalSaved} bookings (${totalErrors} errors)`
+                    : `Saved ${totalSaved} bookings to database`
+            });
+
+            return { success: true, stats };
+
+        } catch (error) {
+            console.error('[HostelAnalytics] ❌ Database save error:', error);
+            setDbStatus({
+                type: 'error',
+                message: `Failed to save to database: ${error.message}`
+            });
+            return { success: false, stats: { saved: 0, errors: 1 } };
+
+        } finally {
+            setIsSavingToDB(false);
+        }
+    }, [isSupabaseEnabled]);
+
+    /**
+     * Load reservations from database and populate state (Step 1.4)
+     *
+     * Loads booking data from database for a date range and populates weeklyData state.
+     * This is the core of Option A: DB-First, State-Cached architecture.
+     *
+     * Process:
+     * 1. Query database for reservations in date range
+     * 2. Transform DB format to app format
+     * 3. Group by week and hostel
+     * 4. Calculate metrics (using existing calculateHostelMetrics)
+     * 5. Update state (weeklyData)
+     *
+     * @param {Date} startDate - Start of date range
+     * @param {Date} endDate - End of date range
+     * @returns {Promise<{success: boolean, count: number}>}
+     */
+    const loadReservationsFromDatabase = useCallback(async (startDate, endDate) => {
+        if (!isSupabaseEnabled) {
+            console.log('[HostelAnalytics] ⚠️  Supabase not enabled - cannot load from DB');
+            return { success: false, count: 0 };
+        }
+
+        console.log(`[HostelAnalytics] 📥 Loading reservations from database...`);
+        setIsLoadingFromDB(true);
+
+        try {
+            // Query database
+            const result = await getReservationsByDateRange(startDate, endDate, {});
+
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+
+            const dbReservations = result.data || [];
+            console.log(`[HostelAnalytics] 📥 Loaded ${dbReservations.length} reservations from database`);
+
+            if (dbReservations.length === 0) {
+                setDbStatus({
+                    type: 'info',
+                    message: 'No reservations found in database for this date range'
+                });
+                setIsLoadingFromDB(false);
+                return { success: true, count: 0 };
+            }
+
+            // Transform DB format to app format
+            const appReservations = dbReservations.map(transformDBReservationToApp);
+
+            // Group by week and hostel (similar to existing data processing)
+            const weeklyGroups = {};
+
+            appReservations.forEach(booking => {
+                // Determine week
+                const bookingDate = new Date(booking.bookingDate);
+                const weekPeriod = calculatePeriod(bookingDate);
+                const weekLabel = formatPeriodRange(weekPeriod.start, weekPeriod.end);
+
+                // Initialize week if needed
+                if (!weeklyGroups[weekLabel]) {
+                    weeklyGroups[weekLabel] = {
+                        week: weekLabel,
+                        date: weekPeriod.start,
+                        hostels: {}
+                    };
+                }
+
+                // Add booking to hostel
+                const hostelName = booking.hostelName || 'Unknown';
+                if (!weeklyGroups[weekLabel].hostels[hostelName]) {
+                    weeklyGroups[weekLabel].hostels[hostelName] = [];
+                }
+                weeklyGroups[weekLabel].hostels[hostelName].push(booking);
+            });
+
+            // Calculate metrics for each hostel in each week
+            const loadedWeeklyData = Object.values(weeklyGroups).map(week => {
+                const hostelsWithMetrics = {};
+
+                Object.entries(week.hostels).forEach(([hostelName, bookings]) => {
+                    hostelsWithMetrics[hostelName] = calculateHostelMetrics(bookings);
+                });
+
+                return {
+                    week: week.week,
+                    date: week.date,
+                    hostels: hostelsWithMetrics
+                };
+            });
+
+            // Sort by date
+            const sortedData = sortWeeklyData(loadedWeeklyData);
+
+            // Update state
+            setWeeklyData(sortedData);
+
+            console.log(`[HostelAnalytics] ✅ Loaded ${dbReservations.length} reservations into state`);
+            setDbStatus({
+                type: 'success',
+                message: `Loaded ${dbReservations.length} bookings from database`
+            });
+
+            return { success: true, count: dbReservations.length };
+
+        } catch (error) {
+            console.error('[HostelAnalytics] ❌ Database load error:', error);
+            setDbStatus({
+                type: 'error',
+                message: `Failed to load from database: ${error.message}`
+            });
+            return { success: false, count: 0 };
+
+        } finally {
+            setIsLoadingFromDB(false);
+        }
+    }, [isSupabaseEnabled]);
+
+    // ============================================================================
+    // EXISTING DATA PROCESSING FUNCTIONS
+    // ============================================================================
 
     // Process pasted data
     const processPastedData = () => {
@@ -135,6 +441,31 @@ const HostelAnalytics = () => {
                     return sortWeeklyData([...prev, newWeekData]);
                 }
             });
+
+            // ============================================================
+            // PHASE 2: STEP 2.3 - Save to Database After Paste
+            // ============================================================
+            // Save pasted data to database for persistence
+            if (isSupabaseEnabled && metrics.bookings && metrics.bookings.length > 0) {
+                console.log(`[HostelAnalytics] 💾 Saving pasted data to database...`);
+
+                // Add hostelName to bookings for database grouping
+                const bookingsWithHostel = metrics.bookings.map(booking => ({
+                    ...booking,
+                    hostelName: detectedHostel
+                }));
+
+                // Save in background
+                saveReservationsToDatabase(bookingsWithHostel, 'paste', weekRange)
+                    .then(result => {
+                        if (result.success) {
+                            console.log(`[HostelAnalytics] ✅ Saved ${result.stats.saved} pasted bookings to database`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('[HostelAnalytics] ❌ Background DB save failed:', error);
+                    });
+            }
 
             setPasteData('');
             setSelectedHostel('');
@@ -414,6 +745,42 @@ const HostelAnalytics = () => {
                     });
 
                     console.log(`[HostelAnalytics] ✨ Data updated successfully!`);
+
+                    // ============================================================
+                    // PHASE 2: STEP 2.1 - Save to Database After API Fetch
+                    // ============================================================
+                    // Collect all bookings from results and save to database
+                    // This implements Option A: DB-First, State-Cached architecture
+                    // State is already updated above, now we persist to DB
+                    if (isSupabaseEnabled) {
+                        console.log(`[HostelAnalytics] 💾 Saving API-fetched data to database...`);
+
+                        const allBookings = [];
+                        Object.entries(results).forEach(([hostelName, metrics]) => {
+                            if (metrics.bookings && metrics.bookings.length > 0) {
+                                // Add hostelName to each booking for database grouping
+                                metrics.bookings.forEach(booking => {
+                                    allBookings.push({
+                                        ...booking,
+                                        hostelName: hostelName
+                                    });
+                                });
+                            }
+                        });
+
+                        if (allBookings.length > 0) {
+                            // Save in background (don't block user)
+                            saveReservationsToDatabase(allBookings, 'api', weekRange)
+                                .then(result => {
+                                    if (result.success) {
+                                        console.log(`[HostelAnalytics] ✅ Saved ${result.stats.saved} bookings to database`);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('[HostelAnalytics] ❌ Background DB save failed:', error);
+                                });
+                        }
+                    }
                 }
 
                 // Show summary
@@ -660,6 +1027,23 @@ const HostelAnalytics = () => {
                     });
                 });
 
+                // ============================================================
+                // PHASE 3: STEP 3.1 - Save enriched revenue to database
+                // ============================================================
+                // Update database with enriched revenue data immediately
+                // This ensures DB stays in sync with state during enrichment
+                if (isSupabaseEnabled) {
+                    // Update in background (don't block enrichment progress)
+                    updateReservationRevenue(booking.reservation, {
+                        total: total,
+                        netPrice: netPrice,
+                        taxes: taxes
+                    }).catch(error => {
+                        console.error(`[HostelAnalytics] ⚠️  Failed to update DB for ${booking.reservation}:`, error);
+                        // Don't fail the enrichment if DB update fails - state is already updated
+                    });
+                }
+
                 // Update progress - mark as success with enriched amounts
                 setEnrichmentProgress(prev => prev ? {
                     ...prev,
@@ -837,6 +1221,40 @@ const HostelAnalytics = () => {
                     return sortWeeklyData([...prev, newWeekData]);
                 }
             });
+
+            // ============================================================
+            // PHASE 2: STEP 2.2 - Save to Database After Excel Upload
+            // ============================================================
+            // Save Excel-uploaded data to database for persistence
+            if (isSupabaseEnabled) {
+                console.log(`[HostelAnalytics] 💾 Saving Excel-uploaded data to database...`);
+
+                // Collect all bookings from all hostels
+                const allBookings = [];
+                Object.entries(weekReservations).forEach(([hostelName, metrics]) => {
+                    if (metrics.bookings && metrics.bookings.length > 0) {
+                        metrics.bookings.forEach(booking => {
+                            allBookings.push({
+                                ...booking,
+                                hostelName: hostelName
+                            });
+                        });
+                    }
+                });
+
+                if (allBookings.length > 0) {
+                    // Save in background
+                    saveReservationsToDatabase(allBookings, 'excel', weekRange)
+                        .then(result => {
+                            if (result.success) {
+                                console.log(`[HostelAnalytics] ✅ Saved ${result.stats.saved} Excel bookings to database`);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('[HostelAnalytics] ❌ Background DB save failed:', error);
+                        });
+                }
+            }
 
             setSelectedWeekStart('');
 
@@ -1074,6 +1492,13 @@ Format your response in a clear, actionable report.`;
                     enrichmentProgress={enrichmentProgress}
                     onEnrichStart={enrichWithRevenueDetails}
                     onEnrichCancel={cancelEnrichment}
+                    // Database props (Phase 4)
+                    isSupabaseEnabled={isSupabaseEnabled}
+                    dbStatus={dbStatus}
+                    isSavingToDB={isSavingToDB}
+                    isLoadingFromDB={isLoadingFromDB}
+                    onLoadFromDB={loadReservationsFromDatabase}
+                    weeklyData={weeklyData}
                 />
 
                 {/* Conditional View Rendering - Dashboard or Excel */}

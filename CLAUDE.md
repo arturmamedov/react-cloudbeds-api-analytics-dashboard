@@ -785,6 +785,57 @@ When unclear about requirements, ask about:
   - `src/components/DataInput/APIFetchPanel.jsx` - Enrichment button and progress UI
   - All dashboard view components - Tax breakdown support
 
+### Database Persistence with Supabase (Optional)
+- **Added**: Complete Supabase PostgreSQL database layer for data persistence
+- **Architecture**: Option A: DB-First, State-Cached
+  - Database is the source of truth
+  - State (weeklyData) is a cache for fast rendering
+  - Perfect for future backend integration
+- **Tables Created**:
+  - `hostels` - Master table for 11 properties
+  - `reservations` - Hybrid structured + JSONB model for all booking data
+  - `weekly_reports` - Pre-calculated metrics for fast loading
+  - `data_imports` - Complete audit trail
+- **Auto-Calculated Fields**: `lead_time`, `is_nest_pass`, `is_monthly`, `is_cancelled` (via database triggers)
+- **Integration Points**:
+  - **API Fetch**: Auto-saves to DB after successful fetch
+  - **Excel Upload**: Auto-saves after processing
+  - **Paste**: Auto-saves after parsing
+  - **Revenue Enrichment**: Updates DB with enriched revenue immediately
+- **UI Components**:
+  - Database status indicator (green/red/blue badges)
+  - "Load Last 3 Months from Database" button
+  - Real-time loading states and error messages
+  - Current data info display (weeks, hostels, auto-save status)
+- **Key Functions**:
+  - `saveReservationsToDatabase()` - Save bookings with audit trail
+  - `loadReservationsFromDatabase()` - Load and populate state from DB
+  - `updateReservationRevenue()` - Update enriched revenue
+- **Files Created**:
+  - `supabase/migrations/001_initial_schema.sql` - Complete database schema (500+ lines)
+  - `src/config/supabaseClient.js` - Supabase client configuration
+  - `src/utils/dbUtils.js` - Database utility functions (20+ functions)
+  - `docs/database-schema.md` - Schema documentation
+  - `docs/database-setup-guide.md` - Step-by-step setup
+  - `docs/database-integration-guide.md` - Integration instructions
+  - `docs/database-api-reference.md` - Complete API reference
+  - `docs/database-testing-guide.md` - Testing instructions
+- **Files Modified**:
+  - `HostelAnalytics.jsx` - Database state, helper functions, integration with all data sources
+  - `DataInputPanel.jsx` - Database operations UI panel
+  - `.env.example` - Added Supabase environment variables
+  - `package.json` - Added `@supabase/supabase-js` dependency
+- **Pattern: Background Auto-Save**:
+  - All data sources save to DB automatically in background
+  - Non-blocking: State updates immediately, DB saves async
+  - User sees data instantly, persistence happens behind the scenes
+  - Graceful degradation: App works without DB configuration
+- **Future-Ready**:
+  - When backend is added, it can write directly to DB
+  - Frontend will load from DB (same code, no changes needed)
+  - Date range selection ready for implementation
+  - Multi-user support built-in (RLS policies configured)
+
 ---
 
 ## 🎯 Remember: Core Principles
